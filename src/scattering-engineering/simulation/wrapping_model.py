@@ -16,7 +16,7 @@ font = {'family' : 'DejaVu Sans',
 
 matplotlib.rc('font', **font)
 
-import Model_1D_fentes as M1fentes
+import model as M1fentes
 import BMM
 from BMM import materials
 import desordre.detection_pics as post

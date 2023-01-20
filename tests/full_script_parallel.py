@@ -6,7 +6,7 @@ Created on Mon Aug 16 15:39:42 2021
 @author: denis
 """
 
-import wrapping_modele_analytique as modele
+import scattering-engineering.wrapping_model as modele
 import numpy as np
 import BMM
 import BMM.materials as materials
