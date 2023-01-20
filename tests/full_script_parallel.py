@@ -6,10 +6,9 @@ Created on Mon Aug 16 15:39:42 2021
 @author: denis
 """
 
-import scattering-engineering.wrapping_model as modele
+from context import wrap as modele
+from context import bunch
 import numpy as np
-import BMM
-import BMM.materials as materials
 import matplotlib
 from joblib import Parallel, delayed
 
@@ -21,7 +20,7 @@ matplotlib.rc('font', **font)
 
 ### Defining the structure
 l_structure = list()
-structure = BMM.Bunch()
+structure = bunch.Bunch()
 # The interfaces (note: the given period is supposed to begin with metal
 #                       and then alternate between dielectric and metal)
 #                (It is also not supposed that there is an interface at x=0 or y=0)
@@ -43,7 +42,7 @@ l_structure.append(structure)
 
 ### Defining the field incidence
 l_angle = list()
-angle = BMM.Bunch()
+angle = bunch.Bunch()
 angle.theta = 0.1*np.pi/180
 # Colatitude of incidence
 angle.phi = 0.01*np.pi/180
@@ -76,7 +75,7 @@ l_rf = np.arange(.01, 1., 0.1)*structure.period
 
 
 ### Defining numerical parameters
-params = BMM.Bunch()
+params = bunch.Bunch()
 params.super_period = 500
 # The size of the metaperiod taken for the computation
 # Larger than 1 is useful only if the structure is disordered

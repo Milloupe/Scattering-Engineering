@@ -16,10 +16,9 @@ font = {'family' : 'DejaVu Sans',
 
 matplotlib.rc('font', **font)
 
-import model as M1fentes
-import BMM
-from BMM import materials
-import desordre.detection_pics as post
+from . import model as M1fentes
+from . import bunch
+from . import materials
 
 def analytic_model(variables, params, return_last_profil=False,
                    type_disorder="None", variance=0, compute_phase=False, progress=True):
@@ -58,7 +57,7 @@ def analytic_model(variables, params, return_last_profil=False,
     SI_variables = conversion_to_SI(variables, params)
     l_structure, l_angle, l_lambdas, l_rf = SI_variables
 
-    profil = BMM.Bunch()
+    profil = bunch.Bunch()
 
     profil.nb_reps = params.nb_reps
     profil.super_period = params.super_period
@@ -295,7 +294,7 @@ def conversion_to_SI(variables, params):
     else:
         conv_l_angle = list()
         for iangle in range(len(l_angle)):
-            conv_angle = BMM.Bunch()
+            conv_angle = bunch.Bunch()
             if (params.unit_angle_in == "deg"):
                 conv_angle.theta = l_angle[iangle].theta * np.pi/180
                 conv_angle.psi = l_angle[iangle].psi * np.pi/180
@@ -312,7 +311,7 @@ def conversion_to_SI(variables, params):
     else:
         conv_l_struc = list()
         for istruc in range(len(l_structure)):
-            conv_struc = BMM.Bunch()
+            conv_struc = bunch.Bunch()
             if (params.unit_struct_in == "um"):
             # We know the plot unit is different, and we usually only use
             # deg or rad
@@ -386,7 +385,7 @@ def conversion_to_plot(SI_variables, params):
     else:
         conv_l_angle = list()
         for iangle in range(len(l_angle)):
-            conv_angle = BMM.Bunch()
+            conv_angle = bunch.Bunch()
             if (params.unit_angle_plot == "deg"):
                 conv_angle.theta = l_angle[iangle].theta * 180/np.pi
                 conv_angle.psi = l_angle[iangle].psi * 180/np.pi
@@ -407,7 +406,7 @@ def conversion_to_plot(SI_variables, params):
     else:
         conv_l_struc = list()
         for istruc in range(len(l_structure)):
-            conv_struc = BMM.Bunch()
+            conv_struc = bunch.Bunch()
             if (params.unit_struct_plot == "um"):
             # We know the plot unit is different, and we usually only use
             # deg or rad
@@ -1029,7 +1028,7 @@ def load_var(saved_var, kept_modes, averaging, err=True):
         - err tells the function whether or not to load the error bars
     """
 
-    var = BMM.Bunch()
+    var = bunch.Bunch()
     i_mode = 0
     # This will serve as an index in the saved_var list
     # that will increase depending on kept_modes
@@ -2779,7 +2778,7 @@ def load_scat(saved_var, kept_modes, averaging, err=False):
         - err tells the function whether or not to load the error bars
     """
 
-    var = BMM.Bunch()
+    var = bunch.Bunch()
     i_mode = 0
     print(len(saved_var))
     # This will serve as an index in the saved_var list
@@ -2904,14 +2903,6 @@ def plot_Scat(saved_var, kept_modes, variables, params, variance,
                         plt.show()
                         plt.clf()
                         
-                        
-                        if ("refl" in kept_modes):
-                            kl = kx0 - 2*np.pi/(l_structure[istru].period)
-                            kr = kx0 + 2*np.pi/(l_structure[istru].period)
-                            angle_l = np.arcsin(kl/k0)*180/np.pi
-                            angle_r = np.arcsin(kr/k0)*180/np.pi
-                            post.traitement(r_angl_out, v.r_out_avg[istru, i_rf, i_angle, i_lam], angle_l=angle_l, angle_r=angle_r, filename=file_root, doss="desordre/post_process")
-    
                     else:
                         # Not averaging AND more than one repetition, so one plot
                         # per rep

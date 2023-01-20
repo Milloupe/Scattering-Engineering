@@ -1,0 +1,3 @@
+ng=3+i 5.446 lambda /3 (lambda en um et epaisseur d'une monocouche = 0.34 nm)
+Ref : X. Gan; R. J. Shiue; Y. Gao; I. Meric; T. F. Heinz; K. Shepard; J. Hone; S. Assefa; D. Englund, “Chip-integrated
+ultrafast graphene photodetector with high responsivity,” Nat. Photonics 7(11), 883-887 (2013).
