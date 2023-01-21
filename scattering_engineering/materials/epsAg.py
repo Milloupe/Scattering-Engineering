@@ -12,8 +12,8 @@ modele='BB', Brendel-Bormann model from Rakic et al
 valid from 0.125 to 6eV
 Rakic et al., Appl. Opt. 37, 5271 (1998)
 """
-import src.scattering_engineering.simulation as sim
-import src.scattering_engineering.simulation.materials as mat
+import scattering_engineering as sim
+import scattering_engineering.materials as mat
 import numpy as np
 def epsAg(lambd, modele='Ordal'):
 

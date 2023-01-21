@@ -13,8 +13,8 @@ valid from 12nm to 200 um
 Rakic et al., Appl. Opt. 37, 5271 (1998)
 """
 
-import src.scattering_engineering.simulation
-import src.scattering_engineering.simulation.materials
+import scattering_engineering
+import scattering_engineering.materials
 import numpy as np
 def epsAl(lambd, modele='Ordal'):
     if modele=='Ordal':
@@ -23,7 +23,7 @@ def epsAl(lambd, modele='Ordal'):
         eps_inf=1
         omega_p=11.9*1e4
         omega_tau=6.6*1e2
-        epsilon = src.scattering_engineering.simulation.materials.Drude_omega(lambd,omega_p,omega_tau,eps_inf)
+        epsilon = scattering_engineering.materials.Drude_omega(lambd,omega_p,omega_tau,eps_inf)
     elif modele=='BB':
         # Parametres exprimes en eV
         f0=0.526
@@ -33,5 +33,5 @@ def epsAl(lambd, modele='Ordal'):
         Gamma_j=np.array((0.312,0.315,1.587,2.145))
         omega_j=np.array((0.163,1.561,1.827,4.495))
         f_j=np.array((0.213,0.06,0.182,0.014))
-        epsilon= src.scattering_engineering.simulation.materials.Brendel_model(lambd,f0,Gamma_0,omega_p,sigma_j,Gamma_j,omega_j,f_j,units_model='eV')
+        epsilon= scattering_engineering.materials.Brendel_model(lambd,f0,Gamma_0,omega_p,sigma_j,Gamma_j,omega_j,f_j,units_model='eV')
     return epsilon

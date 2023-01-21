@@ -33,12 +33,12 @@ def init_base(p):
     p.kz03 = p.kz01
     p.eta_1 = p.eps_1 * p.k0 / (1.0j * np.sqrt(p.eps_m))
     p.eta_2 = [p.eps_struct[l] * p.k0 / (1.0j * np.sqrt(p.eps_m)) for l in range(p.nb_fentes_tot)]
-    
+
     if (len(p.ep_sub)==0):
         # No substrate layer
         p.sub = False
         p.eta_3 = p.eps_3 * p.k0 / (1.0j * np.sqrt(p.eps_m))
-    
+
     elif (len(p.ep_sub) >= 1):
         # Substrate layers
         p.sub = True
@@ -70,7 +70,7 @@ def init_fentes_sillons(p):
             p.grooves.append(i)
     p.nb_slits = len(p.slits)
     p.nb_grooves = p.nb_fentes_tot - p.nb_slits
-    
+
     if type(p.eps_2) is float:
         p.eps_struct = [p.eps_2 for l in range(p.nb_fentes_tot)]
     elif (len(p.eps_2) == 1):
@@ -95,7 +95,7 @@ def init_super(p):
     p.h = np.array(p.prof * p.super_period)
     p.L = p.period * p.super_period
     p.nb_fentes_tot = len(p.int)//2
-    
+
     init_fentes_sillons(p)
 
 
@@ -104,7 +104,7 @@ def init_super_low_discrep_sequence(p, alpha=(np.sqrt(5)+1)/2.):
         Initialises the slit positions with a low discrepancy sequence
         based on the Irrational Additive method.
         Alpha is the irrational used for the sequence, default is 1/phi (golden ratio)
-        
+
         Completely disregards the given interfaces, except for the slit widths
         (USE ONLY WITH ONE SLIT FOR THE MOMENT)
     """
@@ -114,20 +114,20 @@ def init_super_low_discrep_sequence(p, alpha=(np.sqrt(5)+1)/2.):
     new_pos = []
     new_x = p.random_factor
     p.L = p.period * p.super_period
-    for i in range(p.super_period): 
+    for i in range(p.super_period):
         new_x = np.mod(new_x+alpha, 1) # The Irrational Additive Sequence
         new_pos.append(new_x*p.L)          # Slit beg
         new_pos.append(new_x*p.L + width)    # Slit end
-            
+
     p.int = np.sort(new_pos)
     if not(check_overlap(p.int, p.L)):
         print(new_pos, p.int)
         sys.exit("Low discrepancy sequence problem: The sequence chosen causes an overlap.")
     p.h = np.array(p.prof * p.super_period)
     p.nb_fentes_tot = len(p.int)//2
-    
+
     init_fentes_sillons(p)
-    
+
 
 def init_super_random_correl(interf, prof, L, epaiss_metal, p):
     """
@@ -160,7 +160,7 @@ def init_super_random_correl(interf, prof, L, epaiss_metal, p):
     p.h = np.array(prof * p.super_period)
     p.L = L * p.super_period
     p.nb_fentes_tot = len(p.int)//2
-    
+
     init_fentes_sillons(p)
 
 
@@ -203,7 +203,7 @@ def init_super_random_geometry(p, rand_type="all"):
     p.h = np.array(p.prof * p.super_period)
     p.L = p.period * p.super_period
     p.nb_fentes_tot = len(p.int)//2
-    
+
     init_fentes_sillons(p)
 
 
@@ -250,7 +250,7 @@ def init_super_jitter(p, rand_type="all"):
     p.h = np.array(p.prof * p.super_period)
     p.L = p.period * p.super_period
     p.nb_fentes_tot = len(p.int)//2
-    
+
     init_fentes_sillons(p)
 
 
@@ -258,7 +258,7 @@ def init_super_rsa(p):
     """
         Initialises the slit positions with a RSA methode
         Exluding radius, by default, is the skin depth used in check_overlap
-        
+
         Completely disregards the given interfaces, except for the slit widths
         (USE ONLY WITH ONE SLIT FOR THE MOMENT)
     """
@@ -267,7 +267,7 @@ def init_super_rsa(p):
     width = p.interf[1] - p.interf[0] # USE ONLY WITH ONE SLIT
     new_pos = []
     p.L = p.period * p.super_period
-    
+
     i = 0
     while (i < p.super_period):
         pos = rdm.random()*p.L
@@ -277,13 +277,13 @@ def init_super_rsa(p):
             new_pos.pop()
         else:
             i += 1
-            
+
     p.int = np.sort(new_pos)
     p.h = np.array(p.prof * p.super_period)
     p.nb_fentes_tot = len(p.int)//2
-    
+
     init_fentes_sillons(p)
-    
+
 
 def check_overlap(slits, L):
     """
@@ -354,7 +354,7 @@ def check_jitter(slits, L):
                     print("Rejected 2.3")
                     return False
     return no_overlap
-    
+
 
 def init_gaussian_super_random(p):
     """
@@ -392,7 +392,7 @@ def init_gaussian_super_random(p):
         p.h = []
         p.L = 1.0
     p.nb_fentes_tot = len(p.int)//2
-        
+
     init_fentes_sillons(p)
 
 
@@ -410,24 +410,24 @@ def init_correl_super_random(p, variance):
         sys.exit("Please give one permittivity and one width per substrate layer")
     all_int = np.concatenate([np.array(p.interf) + p.period*i for i in range(p.super_period)])
     nbSlit = len(all_int)//2
-    
+
     if (nbSlit > 0):
         done = 0
         p.h = np.array(p.prof * p.super_period)
         p.L = p.period * p.super_period
         p.int = np.zeros(nbSlit*p.super_period)
-        
+
         d = p.period*1e6
         while(not(done)):
             per_pos = all_int[::2]
             delta_pos = np.zeros_like(per_pos, dtype=float)
-            
+
             L = p.random_factor*1e6 # Moving to um to normalise
             var = variance
             sigma = nbSlit*d/(2*np.pi*L)
-            
+
             ns = np.arange(1, 4*sigma+1)
-            
+
             phi = np.random.random(len(ns))*2*np.pi
 
             for i in range(nbSlit):
@@ -441,7 +441,7 @@ def init_correl_super_random(p, variance):
             new_pos = all_int + delta
 
             if (check_overlap(new_pos, p.L)):
-                done = 1                
+                done = 1
                 p.int = new_pos
             else:
                 print("Overlap")
@@ -450,7 +450,7 @@ def init_correl_super_random(p, variance):
         p.h = []
         p.L = 1.0
     p.nb_fentes_tot = len(p.int)//2
-        
+
     init_fentes_sillons(p)
 
 def init_sterl_correl_super_random(p, variance):
@@ -467,24 +467,24 @@ def init_sterl_correl_super_random(p, variance):
         sys.exit("Please give one permittivity and one width per substrate layer")
     all_int = np.concatenate([np.array(p.interf) + p.period*i for i in range(p.super_period)])
     nbSlit = len(all_int)//2
-    
+
     if (nbSlit > 0):
         done = 0
         p.h = np.array(p.prof * p.super_period)
         p.L = p.period * p.super_period
         p.int = np.zeros(nbSlit*p.super_period)
-        
+
         d = p.period*1e6
         while(not(done)):
             per_pos = all_int[::2]*1e6
             delta_pos = np.zeros_like(per_pos, dtype=float)
-            
+
             L = p.random_factor*1e6 # Moving to um to normalise
             var = variance
-            
+
             shifts = rdm.random(nbSlit)-1/2.
             shifts = shifts*var*d
-            
+
             cross_shift = np.zeros((nbSlit,nbSlit))
             for i in range(nbSlit):
                 for j in range(nbSlit):
@@ -503,7 +503,7 @@ def init_sterl_correl_super_random(p, variance):
             new_pos = all_int + delta
 
             if (check_overlap(new_pos, p.L)):
-                done = 1                
+                done = 1
                 p.int = new_pos
             else:
                 print("Overlap")
@@ -512,7 +512,7 @@ def init_sterl_correl_super_random(p, variance):
         p.h = []
         p.L = 1.0
     p.nb_fentes_tot = len(p.int)//2
-        
+
     init_fentes_sillons(p)
 
 
@@ -571,7 +571,7 @@ def init_Rayleigh(p):
                 p.kz_sub[isub, n] = kz_sub
                 if (np.real(kz_sub) != 0):
                     p.prop_ord_sub[isub].append(n)
-                
+
 
 def comp_help_variables(p):
     """
@@ -608,11 +608,11 @@ def init_variables(p):
 
     p.kzd = np.array([calc_kzd(l, p) for l in range(p.nb_fentes_tot)])
     p.K = np.array([calc_K(l, p) for l in range(p.nb_fentes_tot)])
-    
+
     n_modes = np.concatenate([np.arange(0, p.nb_modes+1), np.arange(-p.nb_modes,0)])
     p.Alpha_m1 = np.array([calc_Alpha_m(l, 1, p) for l in range(p.nb_fentes_tot)])
     p.Alpha_p1 = np.array([calc_Alpha_p(l, 1, p) for l in range(p.nb_fentes_tot)])
-    
+
     p.Gamma1 = np.array([calc_Gamma(l, p) for l in range(p.nb_fentes_tot)])
 
     # Reordering the indices to have them in the correct order
@@ -624,7 +624,7 @@ def init_variables(p):
 
     p.Beta_m1 = np.array([calc_Beta_m(n, 1, p) for n in n_modes])
     p.Beta_p1 = np.array([calc_Beta_p(n, 1, p) for n in n_modes])
-    
+
     if not(p.sub):
         p.Alpha_m3 = np.array([calc_Alpha_m(l, 3, p) for l in range(p.nb_slits)])
         p.Alpha_p3 = np.array([calc_Alpha_p(l, 3, p) for l in range(p.nb_slits)])
@@ -643,19 +643,19 @@ def init_variables(p):
                         for n in n_modes])
         p.Beta_msub = np.array([calc_Beta_m(n, "sub", p) for n in n_modes])
         p.Beta_psub = np.array([calc_Beta_p(n, "sub", p) for n in n_modes])
-        
+
         p.C_sub, p.P_sub = calc_sub_var(n_modes, p)
         # Not parallel for the moment because we need to compute both
         # type of variables simultaneously
-        
-    
-    
+
+
+
 
 # Many functions computing necessary variables
 
 
 def calc_sub_var(n_modes, p):
-    """n_modes, 
+    """n_modes,
         >> Computes the propagation variables Cj(m) and Pjj-1(m)
         >> We have the following relations:
             Rm(j) = Tm(j) x Cj(m)
@@ -672,7 +672,7 @@ def calc_sub_var(n_modes, p):
              A = 1 + p.kz_sub[-isub,n]*p.eps_sub[-isub-1]/(p.kz_sub[-isub-1,n]*p.eps_sub[-isub])
              B = 1 - p.kz_sub[-isub,n]*p.eps_sub[-isub-1]/(p.kz_sub[-isub-1,n]*p.eps_sub[-isub])
              P_sub[-isub-1, n] = 2 / (A + B * C_sub[-isub, n])
-             
+
              if (p.ep_sub[-isub-1] >= 0):
                  A = p.kz_sub[-isub, n]/p.eps_sub[-isub] * (2*P_sub[-isub-1,n]*C_sub[-isub,n]-1) + p.kz_sub[-isub-1, n]/p.eps_sub[-isub-1]
                  B = p.kz_sub[-isub-1, n]/p.eps_sub[-isub-1] + p.kz_sub[-isub, n]/p.eps_sub[-isub]
@@ -681,7 +681,7 @@ def calc_sub_var(n_modes, p):
                  # Substrate layer, where we don't want reflection to happen
                  # -> R = 0 => C = 0
                  C_sub[-isub-1,n] = 0
-             
+
     return (C_sub, P_sub)
 
 
@@ -859,28 +859,28 @@ def matrix_MA_grooves(l1, l2, p):
         A2 = p.Alpha_m1[ll2] * np.exp(1.0j * p.kzd[ll2] * p.h[ll2])
         B2 = p.Gamma1[ll2] * p.Alpha_p1[ll2] * np.exp(-1.0j * p.kzd[ll2] * p.h[ll2])
         res = res * (A2 + B2)
-        
+
         if (l1 == l2): # equivalent to ll1 == ll2
             A1 = np.exp(1.0j * p.kzd[ll2] * p.h[ll2])
             B1 = p.Gamma1[ll2] * np.exp(-1.0j * p.kzd[ll2] * p.h[ll2])
             res += -p.K[ll2] * (A1 + B1)
         return res
-    
+
     elif (l2 < p.nb_fentes_tot):
         ll1 = p.grooves[l1]
         ll2 = p.slits[l2 - p.nb_grooves]
         res = (1.0 / p.L) * np.sum(p.I1[:, ll1] * p.Int1[:, ll2] / p.Beta_m1)
         A2 = p.Alpha_m1[ll2] * np.exp(1.0j * p.kzd[ll2] * p.ep_metal)
         return res * A2
-    
+
     else:
         ll1 = p.grooves[l1]
         ll2 = p.slits[l2 - p.nb_fentes_tot]
         res = (1.0 / p.L) * np.sum(p.I1[:, ll1] * p.Int1[:, ll2] / p.Beta_m1)
-        A2 = p.Alpha_p1[ll2] 
+        A2 = p.Alpha_p1[ll2]
         return res * A2
-        
-        
+
+
 
 def matrix_MA_slits(l1, l2, p):
     """
@@ -896,54 +896,54 @@ def matrix_MA_slits(l1, l2, p):
             ll2 = p.grooves[l2]
 #            print("ll1=", ll1, " ll2=", ll2)
             # The indices necessary to compute the correct values,
-            # i.e. the one corresponding to the slit position within the 
+            # i.e. the one corresponding to the slit position within the
             # whole array of structures
             res = (1.0 / p.L) * np.sum(p.I1[:, ll1] * p.Int1[:, ll2] / p.Beta_m1)
             A2 = p.Alpha_m1[ll2] * np.exp(1.0j * p.kzd[ll2] * p.h[ll2])
             B2 = p.Gamma1[ll2] * p.Alpha_p1[ll2] * np.exp(-1.0j * p.kzd[ll2] * p.h[ll2])
             return res * (A2 + B2)
-        
+
         elif(l2 < p.nb_fentes_tot):
 #            print("Case top centre: l1=", l1, " l2=", l2, end=" ")
             ll1 = p.slits[l1]
             ll2 = p.slits[l2 - p.nb_grooves]
 #            print("ll1=", ll1, " ll2=", ll2)
             # The indices necessary to compute the correct values,
-            # i.e. the one corresponding to the slit position within the 
+            # i.e. the one corresponding to the slit position within the
             # whole array of structures
             res = (1.0 / p.L) * np.sum(p.I1[:, ll1] * p.Int1[:, ll2] / p.Beta_m1)
             res = res * p.Alpha_m1[ll2] * np.exp(1.0j * p.kzd[ll2] * p.ep_metal)
-        
+
             if (ll1 == ll2):
                 res += - p.K[ll2] * np.exp(1.0j * p.kzd[ll2] * p.ep_metal)
             return res
-        
+
         else:
 #            print("Case top right: l1=", l1, " l2=", l2, end=" ")
             ll1 = p.slits[l1]
             ll2 = p.slits[l2 - p.nb_fentes_tot]
 #            print("ll1=", ll1, " ll2=", ll2)
             # The indices necessary to compute the correct values,
-            # i.e. the one corresponding to the slit position within the 
+            # i.e. the one corresponding to the slit position within the
             # whole array of structures
             res = (1.0 / p.L) * np.sum(p.I1[:, ll1] * p.Int1[:, ll2] / p.Beta_m1)
-            res = res * p.Alpha_p1[ll2]        
+            res = res * p.Alpha_p1[ll2]
             if (ll1 == ll2):
                 res += - p.K[ll2]
             return res
-        
+
     else:
         if(l2 < p.nb_grooves):
 #            print("Case bot left: l1=", l1, " l2=", l2)
-            return 0.0  
-        
+            return 0.0
+
         elif(l2 < p.nb_fentes_tot):
 #            print("Case bot centre: l1=", l1, " l2=", l2, end=" ")
             ll1 = l1 - p.nb_slits
             ll2 = l2 - p.nb_grooves
 #            print("ll1=", ll1, " ll2=", ll2)
             # The indices necessary to compute the correct values,
-            # i.e. the one corresponding to the slit position within the 
+            # i.e. the one corresponding to the slit position within the
             # only array of slits
             # THIS form is simpler than the other cases because most variables
             # used here are for slits only, so there is not the strange
@@ -960,14 +960,14 @@ def matrix_MA_slits(l1, l2, p):
             if (ll1 == ll2):
                 res += - p.K[p.slits[ll2]]
             return res
-        
+
         else:
 #            print("Case bot right: l1=", l1, " l2=", l2, end=" ")
             ll1 = l1 - p.nb_slits
             ll2 = l2 - p.nb_fentes_tot
 #            print("ll1=", ll1, " ll2=", ll2)
             # The indices necessary to compute the correct values,
-            # i.e. the one corresponding to the slit position within the 
+            # i.e. the one corresponding to the slit position within the
             # only array of slits
             # THIS form is simpler than the other cases because most variables
             # used here are for slits only, so there is not the strange
@@ -984,8 +984,8 @@ def matrix_MA_slits(l1, l2, p):
             if (ll1 == ll2):
                 res += - p.K[p.slits[ll2]] * np.exp(1.0j * p.kzd[p.slits[ll2]] * p.ep_metal)
             return res
-        
-    
+
+
 
 def vect_IA(l1, p):
     """
@@ -1046,15 +1046,15 @@ def Rnmy(p):
         Computes the y reflection coefficients for all orders
     """
     p.Rnmy = np.zeros(2 * p.nb_modes + 1, dtype=complex)
-    
+
     Ax = p.Alpha_m1[p.grooves] * np.exp(1.0j * p.kzd[p.grooves] * p.h[p.grooves] )
     Bx = p.Alpha_p1[p.grooves] * p.Gamma1[p.grooves] * np.exp(-1.0j * p.kzd[p.grooves] * p.h[p.grooves])
-    
+
     A0_1 = p.res_lin[:p.nb_grooves] * (Ax + Bx)
     A0_3 = p.res_lin[p.nb_grooves:p.nb_fentes_tot] * np.exp(1.0j * p.kzd[p.slits] * p.ep_metal) * p.Alpha_m1[p.slits]
     B0_3 = p.res_lin[p.nb_fentes_tot:] * p.Alpha_p1[p.slits]
     res_3 = A0_3 + B0_3
-    
+
     for n in range(-p.nb_modes, p.nb_modes+1):
         to_sum1 = A0_1 * p.Int1[n, p.grooves]
         to_sum3 = res_3 * p.Int1[n, p.slits]
@@ -1075,12 +1075,12 @@ def Tnmy(p):
         Computes the y reflection coefficients for all orders
     """
     p.Tnmy3 = np.zeros(2 * p.nb_modes + 1, dtype=complex)
-    
+
     if not(p.sub):
         A0_3 = p.res_lin[p.nb_grooves:p.nb_fentes_tot] * p.Alpha_p3
         B0_3 = p.res_lin[p.nb_fentes_tot:] * p.Alpha_m3 * np.exp(1.0j * p.kzd[p.slits] * p.ep_metal)
         res_3 = A0_3 + B0_3
-        
+
         for n in range(-p.nb_modes, p.nb_modes+1):
             to_sum = res_3 * p.Int3[n, :]
             A = p.Beta_m3[n]
@@ -1089,11 +1089,11 @@ def Tnmy(p):
         A0_sub = p.res_lin[p.nb_grooves:p.nb_fentes_tot] * p.Alpha_psub
         B0_sub = p.res_lin[p.nb_fentes_tot:] * p.Alpha_msub * np.exp(1.0j * p.kzd[p.slits] * p.ep_metal)
         res_sub = A0_sub + B0_sub
-        
+
         for n in range(-p.nb_modes, p.nb_modes+1):
             A = np.sum(res_sub * p.Intsub[n, :])
             B = (p.L * (p.Beta_msub[n] + p.Beta_psub[n]*p.C_sub[0,n]))
-            
+
             C = np.exp(1.0j * np.sum(p.kz_sub[:, n] * np.abs(p.ep_sub)))
             D = np.prod(p.P_sub[:, n])
             p.Tnmy3[n] = A * C * D / B
@@ -1113,8 +1113,8 @@ def reflec_orders(p):
     """
     if (p.nb_fentes_tot > 0):
         p.ref_ord = np.real(p.kz1)/p.kz01 * np.absolute(p.Rnmy)**2
-        
-        
+
+
 def transm_orders(p):
     """
         Computes the transmittivity in each diffraction order

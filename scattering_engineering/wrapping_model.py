@@ -19,6 +19,7 @@ matplotlib.rc('font', **font)
 from . import model as M1fentes
 from . import bunch
 from . import materials
+from . import disorder as dis
 
 def analytic_model(variables, params, return_last_profil=False,
                    type_disorder="None", variance=0, compute_phase=False, progress=True):
@@ -62,7 +63,7 @@ def analytic_model(variables, params, return_last_profil=False,
     profil.nb_reps = params.nb_reps
     profil.super_period = params.super_period
     profil.nb_modes = params.nb_modes
-    
+
     if(not(return_last_profil) and progress):
         nb_tot = len(l_structure) * len(l_angle) * len(l_lambdas) * len(l_rf) * params.nb_reps
         iter = 0
@@ -70,7 +71,7 @@ def analytic_model(variables, params, return_last_profil=False,
                             prefix = 'Progress:',
                             suffix = 'Complete',
                             length=50)
-    
+
     for i_struc in range(len(l_structure)):
         profil.interf = l_structure[i_struc].interf
         profil.prof = l_structure[i_struc].prof
@@ -97,43 +98,44 @@ def analytic_model(variables, params, return_last_profil=False,
                 # Initialising the structure
                 if (profil.random_factor > 0 and type_disorder == "Jitter"):
                     rt = params.struct_disorder
-                    M1fentes.init_super_jitter(profil, rand_type=rt)
+                    dis.init_super_jitter(profil, rand_type=rt)
                 elif (profil.random_factor > 0 and type_disorder == "Gaussian"):
-                    M1fentes.init_gaussian_super_random(profil)
+                    dis.init_gaussian_super_random(profil)
                 elif (profil.random_factor > 0 and type_disorder == "Geom"):
                     rt = params.struct_disorder
-                    M1fentes.init_super_random_geometry(profil, rand_type=rt)
+                    dis.init_super_random_geometry(profil, rand_type=rt)
                 elif (profil.random_factor > 0 and type_disorder == "LDSeq"):
-                    M1fentes.init_super_low_discrep_sequence(profil)
+                    dis.init_super_low_discrep_sequence(profil)
                 elif (type_disorder == "RSA"):
-                    M1fentes.init_super_rsa(profil)
+                    dis.init_super_rsa(profil)
                 elif (type_disorder == "Correl"):
-                    M1fentes.init_correl_super_random(profil, variance)
+                    dis.init_correl_super_random(profil, variance)
                 elif (type_disorder == "Sterl_Correl"):
-                    M1fentes.init_sterl_correl_super_random(profil, variance)
+                    dis.init_sterl_correl_super_random(profil, variance)
                 else:
+                    print("I do not know that type of disorder.")
                     M1fentes.init_super(profil)
-    
+
                 for i_angle in range(len(l_angle)):
                     profil.theta = l_angle[i_angle].theta
                     profil.phi = l_angle[i_angle].phi
                     profil.psi = l_angle[i_angle].psi
-    
+
                     for i_lambdas in range(len(l_lambdas)):
                         profil.lambd = l_lambdas[i_lambdas]
                         profil.eps_m = materials.epsconst(profil.metal, profil.lambd)
 
-                    
+
                         solve_analytic(profil)
                         # Where everything is done
                         ordx[i_struc, i_rf, i_angle, i_lambdas, i_rep] = profil.prop_ord1
                         resx[i_struc, i_rf, i_angle, i_lambdas, i_rep] = profil.ref_ord[profil.prop_ord1]
                         tr_ordx[i_struc, i_rf, i_angle, i_lambdas, i_rep] = profil.prop_ord3
                         tr_resx[i_struc, i_rf, i_angle, i_lambdas, i_rep] = profil.trans_ord[profil.prop_ord3]
-                        
+
                         if (compute_phase):
                             phase[i_struc, i_rf, i_angle, i_lambdas, i_rep] = np.real(2*profil.kzd*profil.h)
-                        
+
                         if (not(return_last_profil) and progress):
                             iter += 1
                             if (iter%10 == 0):
@@ -205,12 +207,12 @@ def post_processing_analytical(res, type_plot, kept_modes,
         averaging = False
 
     plot_variables = conversion_to_plot(SI_variables, params)
-    
+
     if(type_plot[:2]=="1D"):
         saved_var = mode_selection(res, kept_modes, plot_variables, params, averaging)
     elif(type_plot[:2]=="2D"):
         saved_var = mode_selection(res, kept_modes, plot_variables, params, averaging, err=False)
-        
+
         """
             The saved arrays are in the following order, but only with kept_modes
                - spec_ref
@@ -389,7 +391,7 @@ def conversion_to_plot(SI_variables, params):
             if (params.unit_angle_plot == "deg"):
                 conv_angle.theta = l_angle[iangle].theta * 180/np.pi
                 conv_angle.psi = l_angle[iangle].psi * 180/np.pi
-                conv_angle.phi = l_angle[iangle].phi * 180/np.pi     
+                conv_angle.phi = l_angle[iangle].phi * 180/np.pi
             elif (params.unit_angle_plot == "kx"):
                 conv_angle.theta = np.sin(l_angle[iangle].theta)
                 conv_angle.psi = l_angle[iangle].psi
@@ -914,7 +916,7 @@ def scat_selection(res, kept_modes, variables, params, averaging=True, err=False
                     else:
                         n_reps = params.nb_reps
 
-                    
+
                     r_out_reps[istru, irf, iangl, ilamb] = np.array([r_res[istru, irf, iangl, ilamb, l] for l in range(n_reps)])
                     r_out_angl[istru, irf, iangl, ilamb] = np.array(r_ord[istru, irf, iangl, ilamb, 0])
                     if (n_reps == 1 and averaging):
@@ -930,7 +932,7 @@ def scat_selection(res, kept_modes, variables, params, averaging=True, err=False
 
 
                     if ("tran" in kept_modes or "abs" in kept_modes):
-                       
+
                         t_out_reps[istru, irf, iangl, ilamb] = np.array([t_res[istru, irf, iangl, ilamb, l] for l in range(n_reps)])
                         t_out_angl[istru, irf, iangl, ilamb] = np.array(t_ord[istru, irf, iangl, ilamb, 0])
                         if (n_reps == 1 and averaging):
@@ -938,7 +940,7 @@ def scat_selection(res, kept_modes, variables, params, averaging=True, err=False
                             # in a numpy array, i.e. has the same number of
                             # values on all axis.
                             t_out_reps[istru, irf, iangl, ilamb] = np.array([t_out_reps[istru, irf, iangl, ilamb] for l in range(params.nb_reps)])
-    
+
                         if (averaging and "refl" in kept_modes):
                             t_out_avg[istru, irf, iangl, ilamb] = np.mean(t_out_reps[istru, irf, iangl, ilamb], axis=0)
                             if (err):
@@ -982,7 +984,7 @@ def scat_selection(res, kept_modes, variables, params, averaging=True, err=False
                                 for irf in range(len(l_rf))]
                                 for istru in range(len(l_structure))])
         save.append(r_out_angl)
-        
+
 
     if ("tran" in kept_modes):
         if not(averaging):
@@ -1018,7 +1020,7 @@ def scat_selection(res, kept_modes, variables, params, averaging=True, err=False
                                 for irf in range(len(l_rf))]
                                 for istru in range(len(l_structure))])
         save.append(t_out_angl)
-  
+
     return save
 
 
@@ -1215,7 +1217,7 @@ def plot_Lambda(saved_var, kept_modes, variables, params,
                         ax2.set_xticks(1/int_lambdas)
                         ax2.set_xticklabels(str(int_lambdas))
                         ax1.set_xlabel("Frequency (Hz)")
-                        ax2.set_xlabel("Wavelength ($\mu$m)")   
+                        ax2.set_xlabel("Wavelength ($\mu$m)")
                     else:
                         plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                     plt.tight_layout()
@@ -1591,7 +1593,7 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
                         CS = plt.pcolormesh(X, Y, v.t_spec_avg[istru, irf], cmap='viridis')
                         if (contours):
                             plt.contour(X, Y, v.t_spec_avg[istru, irf], contours, colors="k")
-                        
+
                         if (params.unit_lambda_plot=='Hz'):
                             ax1 = plt.gca()
                             ax2 = ax1.twiny()
@@ -1707,7 +1709,7 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
                             CS = plt.pcolormesh(X, Y, v.t_spec_reps[istru, irf, :, :, irep], cmap='viridis')
                             if (contours):
                                 plt.contour(X, Y, v.t_spec_reps[istru, irf, :, :, irep], contours, colors="k")
-                            
+
                             if (params.unit_lambda_plot=='Hz'):
                                 ax1 = plt.gca()
                                 ax2 = ax1.twiny()
@@ -1971,8 +1973,8 @@ def plot_SigmaKx(saved_var, kept_modes, variables, params,
                         print(filename)
                         plt.show()
                         plt.clf()
-                        
-                        
+
+
 def plot_LambdaRF(saved_var, kept_modes, variables, params,
               averaging, save, path, file, subplots=False):
     """
@@ -2798,7 +2800,7 @@ def load_scat(saved_var, kept_modes, averaging, err=False):
                 i_mode += 2
         var.r_out_angl = saved_var[i_mode]
         i_mode += 1
-       
+
     if ("tran" in kept_modes):
         if not(averaging):
             var.t_out_reps = saved_var[i_mode]
@@ -2833,7 +2835,7 @@ def plot_Scat(saved_var, kept_modes, variables, params, variance,
                 for i_lam in range(len(l_lambdas)):
                     # Make one plot for each of these possibilities
                     # (and also for each repetition, if no averaging)
-    
+
                     per = np.round(l_structure[istru].period, 2)
                     prof = np.round(l_structure[istru].prof, 2)
                     width = np.round(l_structure[istru].interf, 2)
@@ -2857,7 +2859,7 @@ def plot_Scat(saved_var, kept_modes, variables, params, variance,
                                     + "_RF_" + str(rf) + "_VAR_" + str(var) + "_theta_" + str(theta)
                                     + "_phi_" + str(phi) + "_psi_" + str(psi) + "_lamb_" + str(lamb)
                                     + "_nb_reps_" + str(nb_reps) + "_modes_" + str(modes))
-    
+
                         plt.figure(figsize=(10,10))
 
                         if ("refl" in kept_modes):
@@ -2869,7 +2871,7 @@ def plot_Scat(saved_var, kept_modes, variables, params, variance,
                             r_angl_out = np.arcsin(refl_k / (2*np.pi / l_lambdas[i_lam]))*180/np.pi
 #                            print(refl_modes, kx0, kx_per, r_angl_out)
                             plt.plot(r_angl_out, v.r_out_avg[istru, i_rf, i_angle, i_lam], 'b', label="out. Reflection")
-                           
+
                         if ("tran" in kept_modes):
                             tran_modes = v.t_out_angl[istru, i_rf, i_angle, i_lam]
                             k0 = 2*np.pi / lamb
@@ -2878,7 +2880,7 @@ def plot_Scat(saved_var, kept_modes, variables, params, variance,
                             tran_k = kx0 + tran_modes*kx_per
                             t_angl_out = np.arcsin(tran_k / 2*np.pi / lamb)*180/np.pi
                             plt.plot(t_angl_out, v.t_out_avg[istru, i_rf, i_angle, i_lam], 'b--', label="out. Transmission")
-                           
+
                         plt.ylim([1e-6,1.])
                         plt.ylabel("Efficiencies")
                         plt.yscale("log")
@@ -2893,7 +2895,7 @@ def plot_Scat(saved_var, kept_modes, variables, params, variance,
                             ax2.set_xticks(1/int_lambdas)
                             ax2.set_xticklabels(str(int_lambdas))
                             ax1.set_xlabel("Frequency (Hz)")
-                            ax2.set_xlabel("Outgoing angle")   
+                            ax2.set_xlabel("Outgoing angle")
                         else:
                             plt.xlabel("Outgoing angle")
                         plt.tight_layout()
@@ -2902,19 +2904,19 @@ def plot_Scat(saved_var, kept_modes, variables, params, variance,
                         print(filename)
                         plt.show()
                         plt.clf()
-                        
+
                     else:
                         # Not averaging AND more than one repetition, so one plot
                         # per rep
-    
+
                         for irep in range(params.nb_reps):
-    
+
                             filename = (path + "/" + file + "_per_" + str(per)
                                         + "_prof_" + str(prof) + "_width_" + str(width)
                                         + "_RF_" + str(rf) + "_VAR_" + str(var) + "_theta_" + str(theta)
                                         + "_phi_" + str(phi) + "_psi_" + str(psi)
                                         + "_irep_" + str(irep) + "_modes_" + str(modes))
-    
+
                             plt.figure(figsize=(10,10))
                             if ("refl" in kept_modes):
                                 refl_modes = v.r_out_angl[istru, i_rf, i_angle, i_lam]
@@ -2925,7 +2927,7 @@ def plot_Scat(saved_var, kept_modes, variables, params, variance,
                                 r_angl_out = np.arcsin(refl_k / (2*np.pi / l_lambdas[i_lam]))*180/np.pi
     #                            print(refl_modes, kx0, kx_per, r_angl_out)
                                 plt.plot(r_angl_out, v.r_out_reps[istru, i_rf, i_angle, i_lam, irep], 'b', label="out. Reflection")
-                               
+
                             if ("tran" in kept_modes):
                                 tran_modes = v.t_out_angl[istru, i_rf, i_angle, i_lam]
                                 k0 = 2*np.pi / lamb
@@ -2934,8 +2936,8 @@ def plot_Scat(saved_var, kept_modes, variables, params, variance,
                                 tran_k = kx0 + tran_modes*kx_per
                                 t_angl_out = np.arcsin(tran_k / 2*np.pi / lamb)*180/np.pi
                                 plt.plot(t_angl_out, v.t_out_reps[istru, i_rf, i_angle, i_lam, irep], 'b--', label="out. Transmission")
-                            
-                              
+
+
                             plt.ylim([1e-6,1.])
                             plt.ylabel("Efficiencies")
                             plt.yscale("log")
@@ -2983,4 +2985,3 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
     # Print New Line on Complete
     if iteration == total:
         print()
-

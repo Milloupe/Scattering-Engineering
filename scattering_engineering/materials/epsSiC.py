@@ -14,8 +14,8 @@ Measured in 2017
 
 """
 
-import src.scattering_engineering.simulation
-import src.scattering_engineering.simulation.materials
+import scattering_engineering
+import scattering_engineering.materials
 import numpy as np
 
 def epsSiC(lambd,modele='FM'):
@@ -40,7 +40,7 @@ def epsSiC(lambd,modele='FM'):
         f_j     = np.array((1263.41,  1069.06))**2 # defini a partir des mu_pj
 
    
-        epsilon = src.scattering_engineering.simulation.materials.Brendel_model(lambd, f0, Gamma_0, omega_p, 
+        epsilon = scattering_engineering.materials.Brendel_model(lambd, f0, Gamma_0, omega_p, 
                                              sigma_j, Gamma_j, omega_j, f_j, 
                                              eps_inf=eps_infini, units_model='cm-1')
     
@@ -56,7 +56,7 @@ def epsSiC(lambd,modele='FM'):
         f_j     = np.array((1208.27,   851.33))**2 # defini a partir des mu_pj
 
    
-        epsilon = src.scattering_engineering.simulation.materials.Brendel_model(lambd, f0, Gamma_0, omega_p, 
+        epsilon = scattering_engineering.materials.Brendel_model(lambd, f0, Gamma_0, omega_p, 
                                              sigma_j, Gamma_j, omega_j, f_j, 
                                              eps_inf=eps_infini, units_model='cm-1')
     

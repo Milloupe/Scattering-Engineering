@@ -13,8 +13,8 @@ modele='MHD',  Maxwell-Helmholtz-Drude model from Cataldo et al.
 valid from 15cm-1 to 10000 cm-1 for a thin film
 Cataldo et al., Opt. Lett. 37, 4200 (2012)
 """
-import src.scattering_engineering.simulation
-import src.scattering_engineering.simulation.materials
+import scattering_engineering
+import scattering_engineering.materials
 import numpy as np
 def epsSiNx(lambd, modele='BB'):
 
@@ -30,11 +30,11 @@ def epsSiNx(lambd, modele='BB'):
         f_j=np.array((902,664,379,172,235))**2 # defini a partir des mu_pj
 
    
-        epsilon= src.scattering_engineering.simulation.materials.Brendel_model(lambd,f0,Gamma_0,omega_p,sigma_j,Gamma_j,omega_j,f_j,eps_inf=eps_infini,units_model='cm-1')
+        epsilon= scattering_engineering.materials.Brendel_model(lambd,f0,Gamma_0,omega_p,sigma_j,Gamma_j,omega_j,f_j,eps_inf=eps_infini,units_model='cm-1')
     elif modele=='reviewOE61218':
     # Modele de dispersion de Maxwell-Helmholtz-Drude - parametres en THz
     
-        omega=2*np.pi*src.scattering_engineering.simulation.conv_lambda_from_m(lambd,'THz')
+        omega=2*np.pi*scattering_engineering.conv_lambda_from_m(lambd,'THz')
         eps_infini=4.603+1j*0.012
        
         eps_prime=np.array((7.499,6.761,6.599,5.305,4.681))
@@ -50,7 +50,7 @@ def epsSiNx(lambd, modele='BB'):
     elif modele=='MHD':
     # Modele de dispersion de Maxwell-Helmholtz-Drude - parametres en THz
     
-        omega=src.scattering_engineering.simulation.conv_lambda_from_m(lambd,'THz')
+        omega=scattering_engineering.conv_lambda_from_m(lambd,'THz')
         eps_infini=4.562+1j*0.0124
        
         eps_prime=np.array((7.499,6.761,6.599,5.305,4.681))

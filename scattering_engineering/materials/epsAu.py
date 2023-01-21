@@ -17,8 +17,8 @@ modele='BB', Brendel-Bormann model from Rakic et al
 valid from 0.1 to 6eV
 Rakic et al., Appl. Opt. 37, 5271 (1998)
 """
-import src.scattering_engineering.simulation
-import src.scattering_engineering.simulation.materials
+import scattering_engineering
+import scattering_engineering.materials
 import numpy as np
 def epsAu(lambd, modele='Palik'):
 
@@ -63,7 +63,7 @@ def epsAu(lambd, modele='Palik'):
         eps_inf=1
         omega_p=7.28*1e4
         omega_tau=2.15*1e2
-        epsilon = src.scattering_engineering.simulation.materials.Drude_omega(lambd,omega_p,omega_tau,eps_inf)
+        epsilon = scattering_engineering.materials.Drude_omega(lambd,omega_p,omega_tau,eps_inf)
     elif modele=='BB':
         # Parametres exprimes en eV
         f0=0.77
@@ -73,6 +73,6 @@ def epsAu(lambd, modele='Palik'):
         Gamma_j=np.array((0.074,0.035,0.083,0.125,0.179))
         omega_j=np.array((0.218,2.885,4.069,6.137,27.97))
         f_j=np.array((0.054,0.050,0.312,0.719,1.648))
-        epsilon= src.scattering_engineering.simulation.materials.Brendel_model(lambd,f0,Gamma_0,omega_p,sigma_j,Gamma_j,omega_j,f_j,units_model='eV')
+        epsilon= scattering_engineering.materials.Brendel_model(lambd,f0,Gamma_0,omega_p,sigma_j,Gamma_j,omega_j,f_j,units_model='eV')
     
     return epsilon

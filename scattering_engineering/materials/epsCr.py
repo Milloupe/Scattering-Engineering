@@ -8,8 +8,8 @@ modele='BB',  default value, Brendel-Bormann model from Rakic et al
 valid from 200nm to 50 um
 Rakic et al., Appl. Opt. 37, 5271 (1998)
 """
-import src.scattering_engineering.simulation
-import src.scattering_engineering.simulation.materials
+import scattering_engineering
+import scattering_engineering.materials
 import numpy as np
 def epsCr(lambd, modele='BB'):
 
@@ -22,6 +22,6 @@ def epsCr(lambd, modele='BB'):
         Gamma_j=np.array((4.256,3.957,2.218,6.983))
         omega_j=np.array((0.281,0.584,1.919,6.997))
         f_j=np.array((0.338,0.261,0.817,0.105))
-        epsilon= src.scattering_engineering.simulation.materials.Brendel_model(lambd,f0,Gamma_0,omega_p,sigma_j,Gamma_j,omega_j,f_j,units_model='eV')
+        epsilon= scattering_engineering.materials.Brendel_model(lambd,f0,Gamma_0,omega_p,sigma_j,Gamma_j,omega_j,f_j,units_model='eV')
     
     return epsilon

@@ -7,15 +7,15 @@ BDD = dict()
 def load_BDD():
     global BDD
     import os, importlib
-    
+
     #repertoire de BMM.materials.__init__:
     rep = os.path.dirname(__file__)
     #liste des fichiers et filtrage de ceux en "eps*.py"
     materials = [fn.replace('.py', '') for fn in os.listdir(rep)
-                 if fn.startswith('eps') and fn.endswith('.py')]                  
-    print(materials, rep) 
+                 if fn.startswith('eps') and fn.endswith('.py')]
+    print(materials, rep)
     for mat in materials:
-        BDD[mat] = getattr(importlib.import_module('src.scattering_engineering.simulation.materials.'+mat), mat)
+        BDD[mat] = getattr(importlib.import_module('scattering_engineering.materials.'+mat), mat)
         print(BDD[mat])
 load_BDD()
 
@@ -23,10 +23,10 @@ load_BDD()
 def epsconst(materiau,lambd):
     #% lambda est defini en m
     global BDD
-    
+
     import numpy as np
-    
-    
+
+
     if callable(materiau):          #si l'utilisateur donne une fonction
         epsilon = materiau(lambd)   #on l'evalue pour lambda
 
@@ -41,13 +41,13 @@ def epsconst(materiau,lambd):
                 [mat,modele]=materiau.split('_')
                 fonc_mat='eps' + mat
                 epsilon= BDD[fonc_mat](lambd,modele)
-                
+
     else:
         epsilon=materiau
-    
+
     if not isinstance(epsilon, complex):
         epsilon=complex(epsilon)
-        
+
     return epsilon
 
 
@@ -61,7 +61,7 @@ def Lorentz_omega(lambd,omega_LO,omega_TO,Gamma_p,eps_inf):
     # Les expressions sont en cm-1
     omega=1e-2/lambd
     epsilon = eps_inf*(1-(omega_LO**2-omega_TO**2)/(omega_TO**2-omega**2-
-1j*Gamma_p*omega)) 
+1j*Gamma_p*omega))
     return epsilon
 
 def Lorentz2_omega(lambd,Ap,omega_p,Gamma_p,eps_inf):
@@ -77,7 +77,7 @@ def Lorentz3_omega(lambd,omega_0,omega_p,Gamma_p,eps_inf):
     epsilon =eps_inf+sum((omega_p**2)/(omega_0**2-omega**2-1j*Gamma_p*omega))
 
     return epsilon
-    
+
 def Brendel_model(lambd,f0,Gamma_0,omega_p,sigma_j,Gamma_j,omega_j,f_j,eps_inf=1,units_model='m'):
 #    Brendel and Bormann, JAP (1991)
 # lambd est la longueur d'onde, f0, Gamma_0,omega_p définissent la composante Drude
@@ -96,9 +96,9 @@ def Brendel_model(lambd,f0,Gamma_0,omega_p,sigma_j,Gamma_j,omega_j,f_j,eps_inf=1
     epsilon=eps_inf-Omega_p**2/(omega*(omega+1j*Gamma_0))+np.sum(chi_j)
 
     return epsilon
-    
-    
-    
+
+
+
 def plot_epsilon(materiau,modele,tablambd,trace='epsilon',unit_lambda='m',save='non',format_save='pdf'):
 # Trace l'indice ou la permittivite d'un materiau defini dans la base de donnee sur la bande spectrale tablambda
 # défini avec l'unité unit_lambda
@@ -115,7 +115,7 @@ def plot_epsilon(materiau,modele,tablambd,trace='epsilon',unit_lambda='m',save='
     for numlambda,lambd in enumerate(tablambda):
         fonc_mat='eps' + materiau
         epsilon[numlambda]=BDD[fonc_mat](lambd,modele)
-        
+
     if trace=='epsilon':
         plt.plot(tablambd,-(np.real(epsilon)),tablambd,(np.imag(epsilon)))
         pylab.legend((r'$-\epsilon _r$', r'$\epsilon _i$'),loc='best')
