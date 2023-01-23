@@ -13,10 +13,8 @@ def load_BDD():
     #liste des fichiers et filtrage de ceux en "eps*.py"
     materials = [fn.replace('.py', '') for fn in os.listdir(rep)
                  if fn.startswith('eps') and fn.endswith('.py')]
-    print(materials, rep)
     for mat in materials:
         BDD[mat] = getattr(importlib.import_module('scattering_engineering.materials.'+mat), mat)
-        print(BDD[mat])
 load_BDD()
 
 

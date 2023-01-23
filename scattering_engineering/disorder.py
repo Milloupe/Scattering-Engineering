@@ -12,6 +12,7 @@ NOTE : In comments, the variables which depend on the slit are called
 """
 
 import numpy as np
+import numpy.random as rdm
 
 
 def init_fentes_sillons(p):
