@@ -14,6 +14,7 @@ NOTE : In comments, the variables which depend on the slit are called
 import numpy as np
 import sys as sys
 import numpy.random as rdm
+from .disorder import init_fentes_sillons
 
 
 # Some init functions to fill in all the variables stored in profil
@@ -47,38 +48,6 @@ def init_base(p):
         p.kz0_sub = np.array([np.sqrt(p.eps_sub[i] * p.k0**2 - p.kx0**2)
                               for i in range(len(p.eps_sub))])
 
-
-def init_fentes_sillons(p):
-    """
-        >> Initialises the array containing the indices of the slits
-         that go through the surface
-        >> Requires int/y, h/y, ep_metal/y to be defined in profil
-    """
-    p.slits = []
-    p.grooves = []
-    for i in range(len(p.h)):
-        if (p.h[i] > p.ep_metal):
-            if (i < len(p.h)//p.super_period):
-                print("Warning: slit {} deeper than the overall width,".format(i)
-                + " forced to max depth")
-            p.h[i] = p.ep_metal
-            p.slits.append(i)
-        elif (p.h[i] >= p.ep_metal - 2e-7):
-            p.h[i] = p.ep_metal
-            p.slits.append(i)
-        else:
-            p.grooves.append(i)
-    p.nb_slits = len(p.slits)
-    p.nb_grooves = p.nb_fentes_tot - p.nb_slits
-
-    if type(p.eps_2) is float:
-        p.eps_struct = [p.eps_2 for l in range(p.nb_fentes_tot)]
-    elif (len(p.eps_2) == 1):
-        p.eps_struct = [p.eps_2[0] for l in range(p.nb_fentes_tot)]
-    elif (len(p.eps_2) == p.nb_fentes_tot):
-        p.eps_struct = p.eps_2
-    else:
-        sys.exit("Provide either one permittivity per structure or only one.")
 
 
 def init_super(p):
