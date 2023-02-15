@@ -2,12 +2,12 @@
 """
 Created on Sat Jan 21 21:59:00 2023
 
-@author: dlangevin
+@author: Denis Langevin
 
 NOTE : In comments, the variables which depend on the slit are called
     'slit variables',
     those which depend on a mode of the Rayleigh decomposition are called
-    'Rayleigh decomposiition variables'.
+    'Rayleigh decomposition variables'.
     Also, l always refers to a slit and n to a kx Rayleigh mode,
 """
 
@@ -15,34 +15,34 @@ import numpy as np
 import numpy.random as rdm
 
 
-def init_fentes_sillons(p):
+def init_slits_sillons(p):
     """
         >> Initialises the array containing the indices of the slits
          that go through the surface
-        >> Requires int/y, h/y, ep_metal/y to be defined in profil
+        >> Requires int/y, h/y, h_metal/y to be defined in profil
     """
     p.slits = []
     p.grooves = []
     for i in range(len(p.h)):
-        if (p.h[i] > p.ep_metal):
+        if (p.h[i] > p.h_metal):
             if (i < len(p.h)//p.super_period):
                 print("Warning: slit {} deeper than the overall width,".format(i)
                 + " forced to max depth")
-            p.h[i] = p.ep_metal
+            p.h[i] = p.h_metal
             p.slits.append(i)
-        elif (p.h[i] >= p.ep_metal - 2e-7):
-            p.h[i] = p.ep_metal
+        elif (p.h[i] >= p.h_metal - 2e-7):
+            p.h[i] = p.h_metal
             p.slits.append(i)
         else:
             p.grooves.append(i)
     p.nb_slits = len(p.slits)
-    p.nb_grooves = p.nb_fentes_tot - p.nb_slits
+    p.nb_grooves = p.nb_slits_tot - p.nb_slits
 
     if type(p.eps_2) is float:
-        p.eps_struct = [p.eps_2 for l in range(p.nb_fentes_tot)]
+        p.eps_struct = [p.eps_2 for l in range(p.nb_slits_tot)]
     elif (len(p.eps_2) == 1):
-        p.eps_struct = [p.eps_2[0] for l in range(p.nb_fentes_tot)]
-    elif (len(p.eps_2) == p.nb_fentes_tot):
+        p.eps_struct = [p.eps_2[0] for l in range(p.nb_slits_tot)]
+    elif (len(p.eps_2) == p.nb_slits_tot):
         p.eps_struct = p.eps_2
     else:
         sys.exit("Provide either one permittivity per structure or only one.")
@@ -57,7 +57,7 @@ def init_super_low_discrep_sequence(p, alpha=(np.sqrt(5)+1)/2.):
         Completely disregards the given interfaces, except for the slit widths
         (USE ONLY WITH ONE SLIT FOR THE MOMENT)
     """
-    if (len(p.ep_sub) != len(p.eps_sub)):
+    if (len(p.h_sub) != len(p.eps_sub)):
         sys.exit("Please give one permittivity and one width per substrate layer")
     width = p.interf[1] - p.interf[0] # USE ONLY WITH ONE SLIT
     new_pos = []
@@ -72,19 +72,19 @@ def init_super_low_discrep_sequence(p, alpha=(np.sqrt(5)+1)/2.):
     if not(check_overlap(p.int, p.L)):
         print(new_pos, p.int)
         sys.exit("Low discrepancy sequence problem: The sequence chosen causes an overlap.")
-    p.h = np.array(p.prof * p.super_period)
-    p.nb_fentes_tot = len(p.int)//2
+    p.h = np.array(p.depth * p.super_period)
+    p.nb_slits_tot = len(p.int)//2
 
-    init_fentes_sillons(p)
+    init_slits_sillons(p)
 
 
-def init_super_random_correl(interf, prof, L, epaiss_metal, p):
+def init_super_random_correl(interf, depth, L, epaiss_metal, p):
     """
         >> If p.super_period is 1, simply initialises the period structure
             Otherwise, repeats and randomises the period a given number of times
             in order to compute the super-diffracted orders (i.e., diffusion)
     """
-    if (len(p.ep_sub) != len(p.eps_sub)):
+    if (len(p.h_sub) != len(p.eps_sub)):
         sys.exit("Please give one permittivity and one width per substrate layer")
     nbSlit = len(interf)
     if (nbSlit > 0):
@@ -103,14 +103,16 @@ def init_super_random_correl(interf, prof, L, epaiss_metal, p):
                 if (check_overlap(rand + interf, L)):
                     p.int[i*nbSlit:(i+1)*nbSlit] = L*i + rand + interf
                     done = 1
+                else:
+                    print("Overlap")
     else:
         p.int = np.array(interf * p.super_period)
 
-    p.h = np.array(prof * p.super_period)
+    p.h = np.array(depth * p.super_period)
     p.L = L * p.super_period
-    p.nb_fentes_tot = len(p.int)//2
+    p.nb_slits_tot = len(p.int)//2
 
-    init_fentes_sillons(p)
+    init_slits_sillons(p)
 
 
 def init_super_random_geometry(p, rand_type="all"):
@@ -119,7 +121,7 @@ def init_super_random_geometry(p, rand_type="all"):
             of each structure
         >> The new positions are picked ar random on a uniform distribution
     """
-    if (len(p.ep_sub) != len(p.eps_sub)):
+    if (len(p.h_sub) != len(p.eps_sub)):
         sys.exit("Please give one permittivity and one width per substrate layer")
     nbSlit = len(p.interf)//2
     all_int = np.concatenate([np.array(p.interf) + p.period*i for i in range(p.super_period)])
@@ -146,14 +148,16 @@ def init_super_random_geometry(p, rand_type="all"):
             if (check_overlap(shift + all_int, p.period*p.super_period)):
                 p.int = shift + all_int
                 done = 1
+            else:
+                print("Overlap")
     else:
         p.int = np.array(p.interf * p.super_period)
 
-    p.h = np.array(p.prof * p.super_period)
+    p.h = np.array(p.depth * p.super_period)
     p.L = p.period * p.super_period
-    p.nb_fentes_tot = len(p.int)//2
+    p.nb_slits_tot = len(p.int)//2
 
-    init_fentes_sillons(p)
+    init_slits_sillons(p)
 
 
 def init_super_jitter(p, rand_type="all"):
@@ -167,7 +171,7 @@ def init_super_jitter(p, rand_type="all"):
         >> The rand variable determines whether all slits or only a subgroup
             should be randomised.
     """
-    if (len(p.ep_sub) != len(p.eps_sub)):
+    if (len(p.h_sub) != len(p.eps_sub)):
         sys.exit("Please give one permittivity and one width per substrate layer")
     nbSlit = len(p.interf)//2
     all_int = np.concatenate([np.array(p.interf) + p.period*i for i in range(p.super_period)])
@@ -193,14 +197,16 @@ def init_super_jitter(p, rand_type="all"):
             if (check_overlap(rand + all_int, p.period*p.super_period)):
                 p.int = rand + all_int
                 done = 1
+            else:
+                print("Overlap")
     else:
         p.int = np.array(p.interf * p.super_period)
 
-    p.h = np.array(p.prof * p.super_period)
+    p.h = np.array(p.depth * p.super_period)
     p.L = p.period * p.super_period
-    p.nb_fentes_tot = len(p.int)//2
+    p.nb_slits_tot = len(p.int)//2
 
-    init_fentes_sillons(p)
+    init_slits_sillons(p)
 
 
 def init_super_rsa(p):
@@ -211,7 +217,7 @@ def init_super_rsa(p):
         Completely disregards the given interfaces, except for the slit widths
         (USE ONLY WITH ONE SLIT FOR THE MOMENT)
     """
-    if (len(p.ep_sub) != len(p.eps_sub)):
+    if (len(p.h_sub) != len(p.eps_sub)):
         sys.exit("Please give one permittivity and one width per substrate layer")
     width = p.interf[1] - p.interf[0] # USE ONLY WITH ONE SLIT
     new_pos = []
@@ -224,85 +230,38 @@ def init_super_rsa(p):
         if not(check_overlap(new_pos, p.L)):
             new_pos.pop()
             new_pos.pop()
+            print("Overlap")
         else:
             i += 1
 
     p.int = np.sort(new_pos)
-    p.h = np.array(p.prof * p.super_period)
-    p.nb_fentes_tot = len(p.int)//2
+    p.h = np.array(p.depth * p.super_period)
+    p.nb_slits_tot = len(p.int)//2
 
-    init_fentes_sillons(p)
+    init_slits_sillons(p)
 
 
 def check_overlap(slits, L):
     """
         >> Checks that there is no overlap in the randomised PERIOD
     """
-    beg_slit = slits[::2]
-    end_slit = slits[1::2]
-    no_overlap = True
-    nb_slits = len(slits)//2
-    for i in range(nb_slits):
-        if (beg_slit[i] < 0 or end_slit[i] > L-2e-7):
-            # The slit is out of the original period
-#            print("Rejected 1")
-            return False
-        pad_beg = beg_slit[i] - 2e-7
-        pad_end = end_slit[i] + 2e-7
-        for j in range(i):
-            # We also consider that there is an overlap when the interfaces
-            # are closer than 200 nm
-            if (beg_slit[j] > pad_beg and beg_slit[j] < pad_end):
-#                print("Rejected 2")
-                return False
-            elif (end_slit[j] > pad_beg and end_slit[j] < pad_end):
-#                print("Rejected 3")
-                return False
-            elif (end_slit[i] > beg_slit[j] and end_slit[i] < end_slit[j]):
-#                print("Rejected 4")
-                return False
-    return no_overlap
+    i_slit = np.argsort(slits[::2])
+    beg_slit = slits[::2][i_slit]
+    end_slit = slits[1::2][i_slit]
 
+    if (np.sum(beg_slit > end_slit)):
+        print("Unexpected situation: some slits end before they begin!")
 
-def check_jitter(slits, L):
-    """
-        >> Checks that there is no overlap in the randomised STRUCTURE
-    """
-    beg_slit = slits[::2]
-    end_slit = slits[1::2]
-    no_overlap = True
     nb_slits = len(slits)//2
-    for i in range(nb_slits):
-        pad_beg = (beg_slit[i] - 2e-7) % L
-        pad_end = (end_slit[i] + 2e-7) % L
-        # We also consider that there is an overlap when the interfaces
-        # are closer than 200 nm
-        for j in range(i):
-            if (pad_end > pad_beg):
-                if (beg_slit[j] > pad_beg and beg_slit[j] < pad_end):
-                    print("Rejected 1.1")
-                    return False
-                if (end_slit[j] > pad_beg and end_slit[j] < pad_end):
-                    print("Rejected 1.2")
-                    return False
-                if (pad_beg > beg_slit[j] and pad_end < end_slit[j]):
-                    print("Rejected 1.3")
-                    return False
-            elif (pad_beg > pad_end):
-                # The slit loops over the unit cell
-                end_slit = end_slit[j] % L
-                beg_slit = beg_slit[j] % L
-                if (end_slit < beg_slit):
-                    # The other slit loops over the unit cell too
-                    print("Rejected 2.1")
-                    return False
-                if (end_slit > pad_beg):
-                    print("Rejected 2.2")
-                    return False
-                if (beg_slit < pad_end):
-                    print("Rejected 2.3")
-                    return False
-    return no_overlap
+
+    if (beg_slit[0] < 0 or end_slit[-1] > L-2e-7):
+        # A slit is out of the original period
+        return False
+
+    overlap = np.sum((beg_slit[1:] - end_slit[:-1]) < 2e-7)
+    # 2e-7 is a small padding to make sure we never have direct coupling
+    # between slits
+    return not(overlap)
 
 
 def init_gaussian_super_random(p):
@@ -315,12 +274,12 @@ def init_gaussian_super_random(p):
             the next slit, centered on L and with p.random_factor
             as a standard deviation
     """
-    if (len(p.ep_sub) != len(p.eps_sub)):
+    if (len(p.h_sub) != len(p.eps_sub)):
         sys.exit("Please give one permittivity and one width per substrate layer")
     nbSlit = len(p.interf)
     if (nbSlit > 0):
         done = 0
-        p.h = np.array(p.prof * p.super_period)
+        p.h = np.array(p.depth * p.super_period)
         p.L = p.period * p.super_period
         nbSlit = len(p.interf)
         end_int = p.interf[-1]
@@ -340,9 +299,9 @@ def init_gaussian_super_random(p):
         p.int = []
         p.h = []
         p.L = 1.0
-    p.nb_fentes_tot = len(p.int)//2
+    p.nb_slits_tot = len(p.int)//2
 
-    init_fentes_sillons(p)
+    init_slits_sillons(p)
 
 
 def init_correl_super_random(p, variance):
@@ -355,14 +314,14 @@ def init_correl_super_random(p, variance):
             the new positions
             Works only for single-slit arrays at the moment.
     """
-    if (len(p.ep_sub) != len(p.eps_sub)):
+    if (len(p.h_sub) != len(p.eps_sub)):
         sys.exit("Please give one permittivity and one width per substrate layer")
     all_int = np.concatenate([np.array(p.interf) + p.period*i for i in range(p.super_period)])
     nbSlit = len(all_int)//2
 
     if (nbSlit > 0):
         done = 0
-        p.h = np.array(p.prof * p.super_period)
+        p.h = np.array(p.depth * p.super_period)
         p.L = p.period * p.super_period
         p.int = np.zeros(nbSlit*p.super_period)
 
@@ -398,9 +357,9 @@ def init_correl_super_random(p, variance):
         p.int = []
         p.h = []
         p.L = 1.0
-    p.nb_fentes_tot = len(p.int)//2
+    p.nb_slits_tot = len(p.int)//2
 
-    init_fentes_sillons(p)
+    init_slits_sillons(p)
 
 def init_sterl_correl_super_random(p, variance):
     """
@@ -412,14 +371,14 @@ def init_sterl_correl_super_random(p, variance):
             the new positions
             Works only for single-slit arrays at the moment.
     """
-    if (len(p.ep_sub) != len(p.eps_sub)):
+    if (len(p.h_sub) != len(p.eps_sub)):
         sys.exit("Please give one permittivity and one width per substrate layer")
     all_int = np.concatenate([np.array(p.interf) + p.period*i for i in range(p.super_period)])
     nbSlit = len(all_int)//2
 
     if (nbSlit > 0):
         done = 0
-        p.h = np.array(p.prof * p.super_period)
+        p.h = np.array(p.depth * p.super_period)
         p.L = p.period * p.super_period
         p.int = np.zeros(nbSlit*p.super_period)
 
@@ -460,6 +419,6 @@ def init_sterl_correl_super_random(p, variance):
         p.int = []
         p.h = []
         p.L = 1.0
-    p.nb_fentes_tot = len(p.int)//2
+    p.nb_slits_tot = len(p.int)//2
 
-    init_fentes_sillons(p)
+    init_slits_sillons(p)

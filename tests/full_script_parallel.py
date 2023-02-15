@@ -3,7 +3,7 @@
 """
 Created on Mon Aug 16 15:39:42 2021
 
-@author: denis
+@author: Denis Langevin
 """
 
 from context import wrap as modele
@@ -53,11 +53,11 @@ l_angle.append(angle)
 #nb_angle = 6
 #max_angle = 60
 #for i_angle in range(nb_angle):
-#    angle = BMM.Bunch()
+#    angle = bunch.Bunch()
 #    angle.theta = (0.01 + i_angle*max_angle/(nb_angle-1)) * np.pi/180
 #    angle.phi = 0.0*np.pi/180
 #    angle.psi = 0.0*np.pi/180
-#    l_angle.append(angle) 
+#    l_angle.append(angle)
 
 
 ### Defining the wavelengths
@@ -96,23 +96,6 @@ params.unit_angle_in = "rad"
 params.unit_angle_plot = "deg"
 # The units in which variables are given, to convert to more readable types
 
-### TODO ###
-"""
-- Ajouter autres graphs
-
-Si le temps
-- Sauvegarde des fichiers :
-    - Rajouter sécurité (pour pas perdre tout le temps de calcul si pas bon dossier)
-    - Rajouter perms et epaisseurs substrats dans nom fichier
-    - Ajouter nom du type de graph (mais pas d'overwrite parce que pas mêmes variables)
-- interfacer BMM
-- Bunch intelligent
-- Possibilité de mettre plusieurs répétitions sur le même plot (quand besoin)
-- Possibilité de choisir l'échelle/la colormap pour les plots 2D
-- Eviter de faire encore et encore le test "... in kept_modes"
-"""
-
-
 type_disorder = "Correl"
 variables = [l_structure,
             l_angle,
@@ -131,8 +114,8 @@ filename = "Desordre_Correl_full_graph_multi"
 
 var = np.arange(0.0, 0.5, 0.05)
 multi = len(var)
-def calcul(variables, params, var=0, type_disorder=type_disorder):
-    
+def compute(variables, params, var=0, type_disorder=type_disorder):
+
     res, SI_variables = modele.analytic_model(variables, params, variance=var,
                                               type_disorder=type_disorder, progress=False)
     ordx, resx, tr_ordx, tr_resx = res
@@ -141,15 +124,15 @@ def calcul(variables, params, var=0, type_disorder=type_disorder):
                                    SI_variables, params, var, save=True,
                                    path=path, file=filename, averaging=True)
 
-Parallel(n_jobs=multi, verbose=20)(delayed(calcul)(variables, params, var=v, type_disorder=type_disorder) for v in var)
+Parallel(n_jobs=multi, verbose=20)(delayed(compute)(variables, params, var=v, type_disorder=type_disorder) for v in var)
 
 # for var in [.1, .2, .3, .4]:
 #     res, SI_variables = modele.analytic_model(variables, params, variance=var,
 #                                               type_disorder=type_disorder)
 #     ordx, resx, tr_ordx, tr_resx = res
 #     # Computing the reflected and transmitted orders (res), as well as their positions (ords)
-    
-    
+
+
 #     # Saving the figures to path/filename_[structure geometry].svg
 #     modele.post_processing_analytical(res, type_plot, kept_modes,
 #                                    SI_variables, params, var, save=True,

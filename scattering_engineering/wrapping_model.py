@@ -3,12 +3,13 @@
 """
 Created on Mon Aug 16 16:03:01 2021
 
-@author: denis
+@author: Denis Langevin
 """
 
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+import os
 
 font = {'family' : 'DejaVu Sans',
         'weight' : 'normal',
@@ -16,7 +17,7 @@ font = {'family' : 'DejaVu Sans',
 
 matplotlib.rc('font', **font)
 
-from . import model as M1fentes
+from . import model
 from . import bunch
 from . import materials
 from . import disorder as dis
@@ -74,10 +75,10 @@ def analytic_model(variables, params, return_last_profil=False,
 
     for i_struc in range(len(l_structure)):
         profil.interf = l_structure[i_struc].interf
-        profil.prof = l_structure[i_struc].prof
+        profil.depth = l_structure[i_struc].depth
         profil.period = l_structure[i_struc].period
-        profil.ep_metal = l_structure[i_struc].epaiss_metal
-        profil.ep_sub = l_structure[i_struc].epaiss_sub
+        profil.h_metal = l_structure[i_struc].height_metal
+        profil.h_sub = l_structure[i_struc].height_sub
         profil.eps_1 = l_structure[i_struc].eps_1
         profil.eps_2 = l_structure[i_struc].eps_2
         profil.metal = l_structure[i_struc].metal
@@ -113,8 +114,9 @@ def analytic_model(variables, params, return_last_profil=False,
                 elif (type_disorder == "Sterl_Correl"):
                     dis.init_sterl_correl_super_random(profil, variance)
                 else:
-                    print("I do not know that type of disorder.")
-                    M1fentes.init_super(profil)
+                    if (type_disorder and profil.random_factor > 0):
+                        print("I do not know that type of disorder.")
+                    model.init_super(profil)
 
                 for i_angle in range(len(l_angle)):
                     profil.theta = l_angle[i_angle].theta
@@ -159,15 +161,15 @@ def solve_analytic(profil):
     """
         Master function for the analytical model
     """
-    M1fentes.init_base(profil)
-    M1fentes.init_structure(profil)
-    M1fentes.init_Rayleigh(profil)
-    M1fentes.init_variables(profil)
-    M1fentes.resolution(profil)
-    M1fentes.Rnm(profil)
-    M1fentes.reflec_orders(profil)
-    M1fentes.Tnm(profil)
-    M1fentes.transm_orders(profil)
+    model.init_base(profil)
+    model.init_structure(profil)
+    model.init_Rayleigh(profil)
+    model.init_variables(profil)
+    model.resolution(profil)
+    model.Rnm(profil)
+    model.reflec_orders(profil)
+    model.Tnm(profil)
+    model.transm_orders(profil)
 
 
 def post_processing_analytical(res, type_plot, kept_modes,
@@ -183,11 +185,11 @@ def post_processing_analytical(res, type_plot, kept_modes,
                 a) Wavelength spectrum --- 1DLambda
                 b) Angular spectrum --- 1DTheta
                 c) Evolution against random factor --- 1DRF
-                d) Angular repartition --- 1DThetaOut TODO
+                d) Angular repartition --- 1DThetaOut
             - 2D plots:
                 a) Wavelength/Incidence angle --- 2DLambdaTheta
                 b) Wavelength/Random factor --- 2DLambdaRF
-                c) Wavelength/Out Angle --- 2DLambdaAngleOut
+                c) Wavelength/Out Angle --- 2DLambdaThetaOut (NOT YET IMPLEMENTED)
                 d) Wavelength/Structure --- 2DLambdaStruct
                 e) Incidence Angle/Structure --- 2DThetaStruct
             - subplots, for all previous possibilities, if there are other
@@ -208,7 +210,7 @@ def post_processing_analytical(res, type_plot, kept_modes,
 
     plot_variables = conversion_to_plot(SI_variables, params)
 
-    if(type_plot[:2]=="1D"):
+    if(type_plot[:2]=="1D" and type_plot[2:]!="ThetaOut"):
         saved_var = mode_selection(res, kept_modes, plot_variables, params, averaging)
     elif(type_plot[:2]=="2D"):
         saved_var = mode_selection(res, kept_modes, plot_variables, params, averaging, err=False)
@@ -228,9 +230,17 @@ def post_processing_analytical(res, type_plot, kept_modes,
                - *_min (min values)
                - *_max (max values)
         """
-    else:
+    elif(type_plot=="1DThetaOut"):
         # Used for scattering plots
         saved_var = scat_selection(res, kept_modes, plot_variables, params, averaging)
+    else:
+        # Defaulting to lambda plot
+        saved_var = mode_selection(res, kept_modes, plot_variables, params, averaging)
+
+    if (save and path):
+        # Simple security to create the save directory
+        if not os.path.exists(path):
+            os.makedirs(path)
 
     if (type_plot == "1DLambda"):
         plot_Lambda(saved_var, kept_modes, plot_variables, params,
@@ -240,6 +250,9 @@ def post_processing_analytical(res, type_plot, kept_modes,
                       averaging, save, path, file, subplots=False)
     elif (type_plot == "1DRF"):
         plot_RF(saved_var, kept_modes, plot_variables, params,
+                      averaging, save, path, file, subplots=False)
+    elif (type_plot == "1DThetaOut"):
+        plot_Scat(saved_var, kept_modes, plot_variables, params, variance,
                       averaging, save, path, file, subplots=False)
 
     elif (type_plot == "2DLambdaTheta" and not(params.unit_angle_plot == "kx")):
@@ -274,8 +287,8 @@ def post_processing_analytical(res, type_plot, kept_modes,
    #                   averaging, save, path, file, subplots=True)
     else:
 #        print("Whatever type of plot you asked for (), it's not implemented yet".format(type_plot))
-        print("Defaulting to polar scattering plot")
-        plot_Scat(saved_var, kept_modes, plot_variables, params, variance,
+        print("Defaulting to lambda plot")
+        plot_Lambda(saved_var, kept_modes, plot_variables, params,
                       averaging, save, path, file, subplots=False)
 
 
@@ -312,19 +325,19 @@ def conversion_to_SI(variables, params):
         conv_l_struc = l_structure
     else:
         conv_l_struc = list()
-        for istruc in range(len(l_structure)):
+        for i_struct in range(len(l_structure)):
             conv_struc = bunch.Bunch()
             if (params.unit_struct_in == "um"):
             # We know the plot unit is different, and we usually only use
             # deg or rad
-                conv_struc.interf = [l_structure[istruc].interf[i] * 1e-6
-                                    for i in range(len(l_structure[istruc].interf))]
-                conv_struc.prof = [l_structure[istruc].prof[i] * 1e-6
-                                    for i in range(len(l_structure[istruc].prof))]
-                conv_struc.period = l_structure[istruc].period * 1e-6
-                conv_struc.epaiss_metal = l_structure[istruc].epaiss_metal * 1e-6
-                conv_struc.epaiss_sub = [l_structure[istruc].epaiss_sub[i] * 1e-6
-                                    for i in range(len(l_structure[istruc].epaiss_sub))]
+                conv_struc.interf = [l_structure[i_struct].interf[i] * 1e-6
+                                    for i in range(len(l_structure[i_struct].interf))]
+                conv_struc.depth = [l_structure[i_struct].depth[i] * 1e-6
+                                    for i in range(len(l_structure[i_struct].depth))]
+                conv_struc.period = l_structure[i_struct].period * 1e-6
+                conv_struc.height_metal = l_structure[i_struct].height_metal * 1e-6
+                conv_struc.height_sub = [l_structure[i_struct].height_sub[i] * 1e-6
+                                    for i in range(len(l_structure[i_struct].height_sub))]
             else:
                 print("Only um and m possible as input format for the structure at the moment",
                 "no modification done.")
@@ -343,12 +356,12 @@ def conversion_to_SI(variables, params):
             if 0 not in l_lambdas:
                 conv_l_lambdas = 1/(1e2*l_lambdas)
             else:
-                print("Lambda=0cm-1 doesn't mean anything, please check your input.")
+                print("Lambda=0 cm-1 doesn't mean anything, please check your input.")
         elif (params.unit_lambda_in == 'Hz'):
             if 0 not in l_lambdas:
                 conv_l_lambdas = 299792458/l_lambdas
             else:
-                print("Lambda=0Hz doesn't mean anything, please check your input.")
+                print("Lambda=0 Hz doesn't mean anything, please check your input.")
         else:
             print("Conversion only implemented for um, cm-1 and Hz for the moment.")
 
@@ -407,23 +420,29 @@ def conversion_to_plot(SI_variables, params):
         conv_l_struc = l_structure
     else:
         conv_l_struc = list()
-        for istruc in range(len(l_structure)):
+        for i_struct in range(len(l_structure)):
             conv_struc = bunch.Bunch()
             if (params.unit_struct_plot == "um"):
             # We know the plot unit is different, and we usually only use
             # deg or rad
-                conv_struc.interf = [l_structure[istruc].interf[i] * 1e6
-                                    for i in range(len(l_structure[istruc].interf))]
-                conv_struc.prof = [l_structure[istruc].prof[i] * 1e6
-                                    for i in range(len(l_structure[istruc].prof))]
-                conv_struc.period = l_structure[istruc].period * 1e6
-                conv_struc.epaiss_metal = l_structure[istruc].epaiss_metal * 1e6
-                conv_struc.epaiss_sub = [l_structure[istruc].epaiss_sub[i] * 1e6
-                                    for i in range(len(l_structure[istruc].epaiss_sub))]
+                conv_struc.interf = [l_structure[i_struct].interf[i] * 1e6
+                                    for i in range(len(l_structure[i_struct].interf))]
+                conv_struc.depth = [l_structure[i_struct].depth[i] * 1e6
+                                    for i in range(len(l_structure[i_struct].depth))]
+                conv_struc.period = l_structure[i_struct].period * 1e6
+                conv_struc.height_metal = l_structure[i_struct].height_metal * 1e6
+                conv_struc.height_sub = [l_structure[i_struct].height_sub[i] * 1e6
+                                    for i in range(len(l_structure[i_struct].height_sub))]
             else:
                 print("Only um and m possible as input format for the structure at the moment",
                 "no modification done.")
                 conv_struc = l_structure[iangle]
+            conv_struc.eps_1 = l_structure[i_struct].eps_1
+            conv_struc.eps_2 = l_structure[i_struct].eps_2
+            conv_struc.eps_3 = l_structure[i_struct].eps_3
+            conv_struc.eps_sub = l_structure[i_struct].eps_sub
+            conv_struc.metal = l_structure[i_struct].metal
+
             conv_l_struc.append(conv_struc)
 
     # Let's move to Lambda
@@ -539,7 +558,7 @@ def mode_selection(res, kept_modes, variables, params, averaging=True, err=True)
                 abs_max = dict()
 
     # Computing all variables we want to keep and storing them in dict
-    for istru in range(len(l_structure)):
+    for i_struct in range(len(l_structure)):
         for iangl in range(len(l_angle)):
             for irf in range(len(l_rf)):
                 for ilamb in range(len(l_lambdas)):
@@ -549,111 +568,111 @@ def mode_selection(res, kept_modes, variables, params, averaging=True, err=True)
                         n_reps = params.nb_reps
 
                     if ("refl" in kept_modes or "abs" in kept_modes):
-                        r_spec_index = np.where(np.array(r_ord[istru, irf, iangl, ilamb, 0]) == 0)[0]
-                        r_spec_reps[istru, irf, iangl, ilamb] = np.concatenate([r_res[istru, irf, iangl, ilamb, l][r_spec_index] for l in range(n_reps)])
+                        r_spec_index = np.where(np.array(r_ord[i_struct, irf, iangl, ilamb, 0]) == 0)[0]
+                        r_spec_reps[i_struct, irf, iangl, ilamb] = np.concatenate([r_res[i_struct, irf, iangl, ilamb, l][r_spec_index] for l in range(n_reps)])
                         if (n_reps == 1 and averaging):
                             # Making sure what we have in the end is easily transformed
                             # in a numpy array, i.e. has the same number of
                             # values on all axis.
-                            r_spec_reps[istru, irf, iangl, ilamb] = np.array([r_spec_reps[istru, irf, iangl, ilamb] for l in range(params.nb_reps)])
+                            r_spec_reps[i_struct, irf, iangl, ilamb] = np.array([r_spec_reps[i_struct, irf, iangl, ilamb] for l in range(params.nb_reps)])
 
                         if (averaging and "refl" in kept_modes):
-                            r_spec_avg[istru, irf, iangl, ilamb] = np.mean(r_spec_reps[istru, irf, iangl, ilamb])
+                            r_spec_avg[i_struct, irf, iangl, ilamb] = np.mean(r_spec_reps[i_struct, irf, iangl, ilamb])
                             if (err):
-                                r_spec_min[istru, irf, iangl, ilamb] = np.min(r_spec_reps[istru, irf, iangl, ilamb])
-                                r_spec_max[istru, irf, iangl, ilamb] = np.max(r_spec_reps[istru, irf, iangl, ilamb])
+                                r_spec_min[i_struct, irf, iangl, ilamb] = np.min(r_spec_reps[i_struct, irf, iangl, ilamb])
+                                r_spec_max[i_struct, irf, iangl, ilamb] = np.max(r_spec_reps[i_struct, irf, iangl, ilamb])
 
                         if ("diff" in kept_modes or "scat" in kept_modes or "abs" in kept_modes):
-                            r_diff_index = np.where(np.array(r_ord[istru, irf, iangl, ilamb, 0]) % sup == 0)[0]
-                            r_diff_array = np.array([r_res[istru, irf, iangl, ilamb, l][r_diff_index] for l in range(n_reps)])
-                            r_diff_reps[istru, irf, iangl, ilamb] = np.sum(r_diff_array, axis=-1) - r_spec_reps[istru, irf, iangl, ilamb]
+                            r_diff_index = np.where(np.array(r_ord[i_struct, irf, iangl, ilamb, 0]) % sup == 0)[0]
+                            r_diff_array = np.array([r_res[i_struct, irf, iangl, ilamb, l][r_diff_index] for l in range(n_reps)])
+                            r_diff_reps[i_struct, irf, iangl, ilamb] = np.sum(r_diff_array, axis=-1) - r_spec_reps[i_struct, irf, iangl, ilamb]
                             if (n_reps == 1 and averaging):
                                 # Making sure what we have in the end is easily transformed
                                 # in a numpy array, i.e. has the same number of
                                 # values on all axis.
-                                r_diff_reps[istru, irf, iangl, ilamb] = np.array([r_diff_reps[istru, irf, iangl, ilamb] for l in range(params.nb_reps)])
+                                r_diff_reps[i_struct, irf, iangl, ilamb] = np.array([r_diff_reps[i_struct, irf, iangl, ilamb] for l in range(params.nb_reps)])
 
                             if (averaging and "refl" in kept_modes):
-                                r_diff_avg[istru, irf, iangl, ilamb] = np.mean(r_diff_reps[istru, irf, iangl, ilamb])
+                                r_diff_avg[i_struct, irf, iangl, ilamb] = np.mean(r_diff_reps[i_struct, irf, iangl, ilamb])
                                 if (err):
-                                    r_diff_min[istru, irf, iangl, ilamb] = np.min(r_diff_reps[istru, irf, iangl, ilamb])
-                                    r_diff_max[istru, irf, iangl, ilamb] = np.max(r_diff_reps[istru, irf, iangl, ilamb])
+                                    r_diff_min[i_struct, irf, iangl, ilamb] = np.min(r_diff_reps[i_struct, irf, iangl, ilamb])
+                                    r_diff_max[i_struct, irf, iangl, ilamb] = np.max(r_diff_reps[i_struct, irf, iangl, ilamb])
 
                             if ("scat" in kept_modes or "abs" in kept_modes):
-                                r_scat_array = np.array([r_res[istru, irf, iangl, ilamb, l] for l in range(n_reps)])
-                                r_scat_reps[istru, irf, iangl, ilamb] = np.sum(r_scat_array, axis=-1) - r_spec_reps[istru, irf, iangl, ilamb] - r_diff_reps[istru, irf, iangl, ilamb]
+                                r_scat_array = np.array([r_res[i_struct, irf, iangl, ilamb, l] for l in range(n_reps)])
+                                r_scat_reps[i_struct, irf, iangl, ilamb] = np.sum(r_scat_array, axis=-1) - r_spec_reps[i_struct, irf, iangl, ilamb] - r_diff_reps[i_struct, irf, iangl, ilamb]
                                 if (n_reps == 1 and averaging):
                                     # Making sure what we have in the end is easily transformed
                                     # in a numpy array, i.e. has the same number of
                                     # values on all axis.
-                                    r_scat_reps[istru, irf, iangl, ilamb] = np.array([r_scat_reps[istru, irf, iangl, ilamb] for l in range(params.nb_reps)])
+                                    r_scat_reps[i_struct, irf, iangl, ilamb] = np.array([r_scat_reps[i_struct, irf, iangl, ilamb] for l in range(params.nb_reps)])
 
                                 if (averaging and "refl" in kept_modes):
-                                    r_scat_avg[istru, irf, iangl, ilamb] = np.mean(r_scat_reps[istru, irf, iangl, ilamb])
+                                    r_scat_avg[i_struct, irf, iangl, ilamb] = np.mean(r_scat_reps[i_struct, irf, iangl, ilamb])
                                     if (err):
-                                        r_scat_min[istru, irf, iangl, ilamb] = np.min(r_scat_reps[istru, irf, iangl, ilamb])
-                                        r_scat_max[istru, irf, iangl, ilamb] = np.max(r_scat_reps[istru, irf, iangl, ilamb])
+                                        r_scat_min[i_struct, irf, iangl, ilamb] = np.min(r_scat_reps[i_struct, irf, iangl, ilamb])
+                                        r_scat_max[i_struct, irf, iangl, ilamb] = np.max(r_scat_reps[i_struct, irf, iangl, ilamb])
 
 
                     if ("tran" in kept_modes or "abs" in kept_modes):
-                        t_spec_index = np.where(np.array(t_ord[istru, irf, iangl, ilamb, 0]) == 0)[0]
-                        t_spec_reps[istru, irf, iangl, ilamb] = np.concatenate([t_res[istru, irf, iangl, ilamb, l][t_spec_index] for l in range(n_reps)])
+                        t_spec_index = np.where(np.array(t_ord[i_struct, irf, iangl, ilamb, 0]) == 0)[0]
+                        t_spec_reps[i_struct, irf, iangl, ilamb] = np.concatenate([t_res[i_struct, irf, iangl, ilamb, l][t_spec_index] for l in range(n_reps)])
                         if (n_reps == 1 and averaging):
                             # Making sure what we have in the end is easily transformed
                             # in a numpy array, i.e. has the same number of
                             # values on all axis.
-                            t_spec_reps[istru, irf, iangl, ilamb] = np.array([t_spec_reps[istru, irf, iangl, ilamb] for l in range(params.nb_reps)])
+                            t_spec_reps[i_struct, irf, iangl, ilamb] = np.array([t_spec_reps[i_struct, irf, iangl, ilamb] for l in range(params.nb_reps)])
 
                         if (averaging and "tran" in kept_modes):
-                            t_spec_avg[istru, irf, iangl, ilamb] = np.mean(t_spec_reps[istru, irf, iangl, ilamb])
+                            t_spec_avg[i_struct, irf, iangl, ilamb] = np.mean(t_spec_reps[i_struct, irf, iangl, ilamb])
                             if (err):
-                                t_spec_min[istru, irf, iangl, ilamb] = np.min(t_spec_reps[istru, irf, iangl, ilamb])
-                                t_spec_max[istru, irf, iangl, ilamb] = np.max(t_spec_reps[istru, irf, iangl, ilamb])
+                                t_spec_min[i_struct, irf, iangl, ilamb] = np.min(t_spec_reps[i_struct, irf, iangl, ilamb])
+                                t_spec_max[i_struct, irf, iangl, ilamb] = np.max(t_spec_reps[i_struct, irf, iangl, ilamb])
 
                         if ("diff" in kept_modes or "scat" in kept_modes or "abs" in kept_modes):
-                            t_diff_index = np.where(np.array(t_ord[istru, irf, iangl, ilamb, 0]) % sup == 0)[0]
-                            t_diff_array = np.array([t_res[istru, irf, iangl, ilamb, l][t_diff_index] for l in range(n_reps)])
-                            t_diff_reps[istru, irf, iangl, ilamb] = np.sum(t_diff_array, axis=-1) - t_spec_reps[istru, irf, iangl, ilamb]
+                            t_diff_index = np.where(np.array(t_ord[i_struct, irf, iangl, ilamb, 0]) % sup == 0)[0]
+                            t_diff_array = np.array([t_res[i_struct, irf, iangl, ilamb, l][t_diff_index] for l in range(n_reps)])
+                            t_diff_reps[i_struct, irf, iangl, ilamb] = np.sum(t_diff_array, axis=-1) - t_spec_reps[i_struct, irf, iangl, ilamb]
                             if (n_reps == 1 and averaging):
                                 # Making sure what we have in the end is easily transformed
                                 # in a numpy array, i.e. has the same number of
                                 # values on all axis.
-                                t_diff_reps[istru, irf, iangl, ilamb] = np.array([t_diff_reps[istru, irf, iangl, ilamb] for l in range(params.nb_reps)])
+                                t_diff_reps[i_struct, irf, iangl, ilamb] = np.array([t_diff_reps[i_struct, irf, iangl, ilamb] for l in range(params.nb_reps)])
 
                             if (averaging and "tran" in kept_modes):
-                                t_diff_avg[istru, irf, iangl, ilamb] = np.mean(t_diff_reps[istru, irf, iangl, ilamb])
+                                t_diff_avg[i_struct, irf, iangl, ilamb] = np.mean(t_diff_reps[i_struct, irf, iangl, ilamb])
                                 if (err):
-                                    t_diff_min[istru, irf, iangl, ilamb] = np.min(t_diff_reps[istru, irf, iangl, ilamb])
-                                    t_diff_max[istru, irf, iangl, ilamb] = np.max(t_diff_reps[istru, irf, iangl, ilamb])
+                                    t_diff_min[i_struct, irf, iangl, ilamb] = np.min(t_diff_reps[i_struct, irf, iangl, ilamb])
+                                    t_diff_max[i_struct, irf, iangl, ilamb] = np.max(t_diff_reps[i_struct, irf, iangl, ilamb])
 
                             if ("scat" in kept_modes or "abs" in kept_modes):
-                                t_scat_array = np.array([t_res[istru, irf, iangl, ilamb, l] for l in range(n_reps)])
-                                t_scat_reps[istru, irf, iangl, ilamb] = np.sum(t_scat_array, axis=-1) - t_spec_reps[istru, irf, iangl, ilamb] - t_diff_reps[istru, irf, iangl, ilamb]
+                                t_scat_array = np.array([t_res[i_struct, irf, iangl, ilamb, l] for l in range(n_reps)])
+                                t_scat_reps[i_struct, irf, iangl, ilamb] = np.sum(t_scat_array, axis=-1) - t_spec_reps[i_struct, irf, iangl, ilamb] - t_diff_reps[i_struct, irf, iangl, ilamb]
                                 if (n_reps == 1 and averaging):
                                     # Making sure what we have in the end is easily transformed
                                     # in a numpy array, i.e. has the same number of
                                     # values on all axis.
-                                    t_scat_reps[istru, irf, iangl, ilamb] = np.array([t_scat_reps[istru, irf, iangl, ilamb] for l in range(params.nb_reps)])
+                                    t_scat_reps[i_struct, irf, iangl, ilamb] = np.array([t_scat_reps[i_struct, irf, iangl, ilamb] for l in range(params.nb_reps)])
 
                                 if (averaging and "tran" in kept_modes):
-                                    t_scat_avg[istru, irf, iangl, ilamb] = np.mean(t_scat_reps[istru, irf, iangl, ilamb])
+                                    t_scat_avg[i_struct, irf, iangl, ilamb] = np.mean(t_scat_reps[i_struct, irf, iangl, ilamb])
                                     if (err):
-                                        t_scat_min[istru, irf, iangl, ilamb] = np.min(t_scat_reps[istru, irf, iangl, ilamb])
-                                        t_scat_max[istru, irf, iangl, ilamb] = np.max(t_scat_reps[istru, irf, iangl, ilamb])
+                                        t_scat_min[i_struct, irf, iangl, ilamb] = np.min(t_scat_reps[i_struct, irf, iangl, ilamb])
+                                        t_scat_max[i_struct, irf, iangl, ilamb] = np.max(t_scat_reps[i_struct, irf, iangl, ilamb])
 
                     if ("abs" in kept_modes):
-                        abs_reps[istru, irf, iangl, ilamb] = 1 - np.sum(t_scat_array, axis=-1) - np.sum(r_scat_array, axis=-1)
+                        abs_reps[i_struct, irf, iangl, ilamb] = 1 - np.sum(t_scat_array, axis=-1) - np.sum(r_scat_array, axis=-1)
                         if (n_reps == 1 and averaging):
                             # Making sure what we have in the end is easily transformed
                             # in a numpy array, i.e. has the same number of
                             # values on all axis.
-                            abs_reps[istru, irf, iangl, ilamb] = np.array([abs_reps[istru, irf, iangl, ilamb] for l in range(params.nb_reps)])
+                            abs_reps[i_struct, irf, iangl, ilamb] = np.array([abs_reps[i_struct, irf, iangl, ilamb] for l in range(params.nb_reps)])
 
                         if (averaging):
-                            abs_avg[istru, irf, iangl, ilamb] = np.mean(abs_reps[istru, irf, iangl, ilamb])
+                            abs_avg[i_struct, irf, iangl, ilamb] = np.mean(abs_reps[i_struct, irf, iangl, ilamb])
                             if (err):
-                                abs_min[istru, irf, iangl, ilamb] = np.min(abs_reps[istru, irf, iangl, ilamb])
-                                abs_max[istru, irf, iangl, ilamb] = np.max(abs_reps[istru, irf, iangl, ilamb])
+                                abs_min[i_struct, irf, iangl, ilamb] = np.min(abs_reps[i_struct, irf, iangl, ilamb])
+                                abs_max[i_struct, irf, iangl, ilamb] = np.max(abs_reps[i_struct, irf, iangl, ilamb])
 
     # And now saving the kept modes in usable format (numpy arrays)
     # (hopefully, efficiently by list comprehension)
@@ -661,201 +680,201 @@ def mode_selection(res, kept_modes, variables, params, averaging=True, err=True)
     if ("refl" in kept_modes):
         if("spec" in kept_modes):
             if not(averaging):
-                r_spec_reps = np.array([[[[r_spec_reps[istru, irf, iangl, ilamb]
+                r_spec_reps = np.array([[[[r_spec_reps[i_struct, irf, iangl, ilamb]
                                         for ilamb in range(len(l_lambdas))]
                                         for iangl in range(len(l_angle))]
                                         for irf in range(len(l_rf))]
-                                        for istru in range(len(l_structure))])
+                                        for i_struct in range(len(l_structure))])
                 save.append(r_spec_reps)
             if (averaging):
-                r_spec_avg = np.array([[[[r_spec_avg[istru, irf, iangl, ilamb]
+                r_spec_avg = np.array([[[[r_spec_avg[i_struct, irf, iangl, ilamb]
                                         for ilamb in range(len(l_lambdas))]
                                         for iangl in range(len(l_angle))]
                                         for irf in range(len(l_rf))]
-                                        for istru in range(len(l_structure))])
+                                        for i_struct in range(len(l_structure))])
                 save.append(r_spec_avg)
                 if (err):
-                    r_spec_min = np.array([[[[r_spec_min[istru, irf, iangl, ilamb]
+                    r_spec_min = np.array([[[[r_spec_min[i_struct, irf, iangl, ilamb]
                                             for ilamb in range(len(l_lambdas))]
                                             for iangl in range(len(l_angle))]
                                             for irf in range(len(l_rf))]
-                                            for istru in range(len(l_structure))])
-                    r_spec_max = np.array([[[[r_spec_max[istru, irf, iangl, ilamb]
+                                            for i_struct in range(len(l_structure))])
+                    r_spec_max = np.array([[[[r_spec_max[i_struct, irf, iangl, ilamb]
                                             for ilamb in range(len(l_lambdas))]
                                             for iangl in range(len(l_angle))]
                                             for irf in range(len(l_rf))]
-                                            for istru in range(len(l_structure))])
+                                            for i_struct in range(len(l_structure))])
                     save.append(r_spec_min)
                     save.append(r_spec_max)
         if("diff" in kept_modes):
             if not(averaging):
-                r_diff_reps = np.array([[[[r_diff_reps[istru, irf, iangl, ilamb]
+                r_diff_reps = np.array([[[[r_diff_reps[i_struct, irf, iangl, ilamb]
                                         for ilamb in range(len(l_lambdas))]
                                         for iangl in range(len(l_angle))]
                                         for irf in range(len(l_rf))]
-                                        for istru in range(len(l_structure))])
+                                        for i_struct in range(len(l_structure))])
                 save.append(r_diff_reps)
             if (averaging):
-                r_diff_avg = np.array([[[[r_diff_avg[istru, irf, iangl, ilamb]
+                r_diff_avg = np.array([[[[r_diff_avg[i_struct, irf, iangl, ilamb]
                                         for ilamb in range(len(l_lambdas))]
                                         for iangl in range(len(l_angle))]
                                         for irf in range(len(l_rf))]
-                                        for istru in range(len(l_structure))])
+                                        for i_struct in range(len(l_structure))])
                 save.append(r_diff_avg)
                 if (err):
-                    r_diff_min = np.array([[[[r_diff_min[istru, irf, iangl, ilamb]
+                    r_diff_min = np.array([[[[r_diff_min[i_struct, irf, iangl, ilamb]
                                             for ilamb in range(len(l_lambdas))]
                                             for iangl in range(len(l_angle))]
                                             for irf in range(len(l_rf))]
-                                            for istru in range(len(l_structure))])
-                    r_diff_max = np.array([[[[r_diff_max[istru, irf, iangl, ilamb]
+                                            for i_struct in range(len(l_structure))])
+                    r_diff_max = np.array([[[[r_diff_max[i_struct, irf, iangl, ilamb]
                                             for ilamb in range(len(l_lambdas))]
                                             for iangl in range(len(l_angle))]
                                             for irf in range(len(l_rf))]
-                                            for istru in range(len(l_structure))])
+                                            for i_struct in range(len(l_structure))])
                     save.append(r_diff_min)
                     save.append(r_diff_max)
         if("scat" in kept_modes):
             if not(averaging):
-                r_scat_reps = np.array([[[[r_scat_reps[istru, irf, iangl, ilamb]
+                r_scat_reps = np.array([[[[r_scat_reps[i_struct, irf, iangl, ilamb]
                                         for ilamb in range(len(l_lambdas))]
                                         for iangl in range(len(l_angle))]
                                         for irf in range(len(l_rf))]
-                                        for istru in range(len(l_structure))])
+                                        for i_struct in range(len(l_structure))])
                 save.append(r_scat_reps)
             if (averaging):
-                r_scat_avg = np.array([[[[r_scat_avg[istru, irf, iangl, ilamb]
+                r_scat_avg = np.array([[[[r_scat_avg[i_struct, irf, iangl, ilamb]
                                         for ilamb in range(len(l_lambdas))]
                                         for iangl in range(len(l_angle))]
                                         for irf in range(len(l_rf))]
-                                        for istru in range(len(l_structure))])
+                                        for i_struct in range(len(l_structure))])
                 save.append(r_scat_avg)
                 if (err):
-                    r_scat_min = np.array([[[[r_scat_min[istru, irf, iangl, ilamb]
+                    r_scat_min = np.array([[[[r_scat_min[i_struct, irf, iangl, ilamb]
                                             for ilamb in range(len(l_lambdas))]
                                             for iangl in range(len(l_angle))]
                                             for irf in range(len(l_rf))]
-                                            for istru in range(len(l_structure))])
-                    r_scat_max = np.array([[[[r_scat_max[istru, irf, iangl, ilamb]
+                                            for i_struct in range(len(l_structure))])
+                    r_scat_max = np.array([[[[r_scat_max[i_struct, irf, iangl, ilamb]
                                             for ilamb in range(len(l_lambdas))]
                                             for iangl in range(len(l_angle))]
                                             for irf in range(len(l_rf))]
-                                            for istru in range(len(l_structure))])
+                                            for i_struct in range(len(l_structure))])
                     save.append(r_scat_min)
                     save.append(r_scat_max)
 
     if ("tran" in kept_modes):
         if("spec" in kept_modes):
             if not(averaging):
-                t_spec_reps = np.array([[[[t_spec_reps[istru, irf, iangl, ilamb]
+                t_spec_reps = np.array([[[[t_spec_reps[i_struct, irf, iangl, ilamb]
                                         for ilamb in range(len(l_lambdas))]
                                         for iangl in range(len(l_angle))]
                                         for irf in range(len(l_rf))]
-                                        for istru in range(len(l_structure))])
+                                        for i_struct in range(len(l_structure))])
                 save.append(t_spec_reps)
             if (averaging):
-                t_spec_avg = np.array([[[[t_spec_avg[istru, irf, iangl, ilamb]
+                t_spec_avg = np.array([[[[t_spec_avg[i_struct, irf, iangl, ilamb]
                                         for ilamb in range(len(l_lambdas))]
                                         for iangl in range(len(l_angle))]
                                         for irf in range(len(l_rf))]
-                                        for istru in range(len(l_structure))])
+                                        for i_struct in range(len(l_structure))])
                 save.append(t_spec_avg)
                 if (err):
-                    t_spec_min = np.array([[[[t_spec_min[istru, irf, iangl, ilamb]
+                    t_spec_min = np.array([[[[t_spec_min[i_struct, irf, iangl, ilamb]
                                             for ilamb in range(len(l_lambdas))]
                                             for iangl in range(len(l_angle))]
                                             for irf in range(len(l_rf))]
-                                            for istru in range(len(l_structure))])
-                    t_spec_max = np.array([[[[t_spec_max[istru, irf, iangl, ilamb]
+                                            for i_struct in range(len(l_structure))])
+                    t_spec_max = np.array([[[[t_spec_max[i_struct, irf, iangl, ilamb]
                                             for ilamb in range(len(l_lambdas))]
                                             for iangl in range(len(l_angle))]
                                             for irf in range(len(l_rf))]
-                                            for istru in range(len(l_structure))])
+                                            for i_struct in range(len(l_structure))])
                     save.append(t_spec_min)
                     save.append(t_spec_max)
         if("diff" in kept_modes):
             if not(averaging):
-                t_diff_reps = np.array([[[[t_diff_reps[istru, irf, iangl, ilamb]
+                t_diff_reps = np.array([[[[t_diff_reps[i_struct, irf, iangl, ilamb]
                                         for ilamb in range(len(l_lambdas))]
                                         for iangl in range(len(l_angle))]
                                         for irf in range(len(l_rf))]
-                                        for istru in range(len(l_structure))])
+                                        for i_struct in range(len(l_structure))])
                 save.append(t_diff_reps)
             if (averaging):
-                t_diff_avg = np.array([[[[t_diff_avg[istru, irf, iangl, ilamb]
+                t_diff_avg = np.array([[[[t_diff_avg[i_struct, irf, iangl, ilamb]
                                         for ilamb in range(len(l_lambdas))]
                                         for iangl in range(len(l_angle))]
                                         for irf in range(len(l_rf))]
-                                        for istru in range(len(l_structure))])
+                                        for i_struct in range(len(l_structure))])
                 save.append(t_diff_avg)
                 if (err):
-                    t_diff_min = np.array([[[[t_diff_min[istru, irf, iangl, ilamb]
+                    t_diff_min = np.array([[[[t_diff_min[i_struct, irf, iangl, ilamb]
                                             for ilamb in range(len(l_lambdas))]
                                             for iangl in range(len(l_angle))]
                                             for irf in range(len(l_rf))]
-                                            for istru in range(len(l_structure))])
-                    t_diff_max = np.array([[[[t_diff_max[istru, irf, iangl, ilamb]
+                                            for i_struct in range(len(l_structure))])
+                    t_diff_max = np.array([[[[t_diff_max[i_struct, irf, iangl, ilamb]
                                             for ilamb in range(len(l_lambdas))]
                                             for iangl in range(len(l_angle))]
                                             for irf in range(len(l_rf))]
-                                            for istru in range(len(l_structure))])
+                                            for i_struct in range(len(l_structure))])
                     save.append(t_diff_min)
                     save.append(t_diff_max)
         if("scat" in kept_modes):
             if not(averaging):
-                t_scat_reps = np.array([[[[t_scat_reps[istru, irf, iangl, ilamb]
+                t_scat_reps = np.array([[[[t_scat_reps[i_struct, irf, iangl, ilamb]
                                         for ilamb in range(len(l_lambdas))]
                                         for iangl in range(len(l_angle))]
                                         for irf in range(len(l_rf))]
-                                        for istru in range(len(l_structure))])
+                                        for i_struct in range(len(l_structure))])
                 save.append(t_scat_reps)
             if (averaging):
-                t_scat_avg = np.array([[[[t_scat_avg[istru, irf, iangl, ilamb]
+                t_scat_avg = np.array([[[[t_scat_avg[i_struct, irf, iangl, ilamb]
                                         for ilamb in range(len(l_lambdas))]
                                         for iangl in range(len(l_angle))]
                                         for irf in range(len(l_rf))]
-                                        for istru in range(len(l_structure))])
+                                        for i_struct in range(len(l_structure))])
                 save.append(t_scat_avg)
                 if (err):
-                    t_scat_min = np.array([[[[t_scat_min[istru, irf, iangl, ilamb]
+                    t_scat_min = np.array([[[[t_scat_min[i_struct, irf, iangl, ilamb]
                                             for ilamb in range(len(l_lambdas))]
                                             for iangl in range(len(l_angle))]
                                             for irf in range(len(l_rf))]
-                                            for istru in range(len(l_structure))])
-                    t_scat_max = np.array([[[[t_scat_max[istru, irf, iangl, ilamb]
+                                            for i_struct in range(len(l_structure))])
+                    t_scat_max = np.array([[[[t_scat_max[i_struct, irf, iangl, ilamb]
                                             for ilamb in range(len(l_lambdas))]
                                             for iangl in range(len(l_angle))]
                                             for irf in range(len(l_rf))]
-                                            for istru in range(len(l_structure))])
+                                            for i_struct in range(len(l_structure))])
                     save.append(t_scat_min)
                     save.append(t_scat_max)
 
     if("abs" in kept_modes):
         if not(averaging):
-            abs_reps = np.array([[[[abs_reps[istru, irf, iangl, ilamb]
+            abs_reps = np.array([[[[abs_reps[i_struct, irf, iangl, ilamb]
                                     for ilamb in range(len(l_lambdas))]
                                     for iangl in range(len(l_angle))]
                                     for irf in range(len(l_rf))]
-                                    for istru in range(len(l_structure))])
+                                    for i_struct in range(len(l_structure))])
             save.append(abs_reps)
         if (averaging):
-            abs_avg = np.array([[[[abs_avg[istru, irf, iangl, ilamb]
+            abs_avg = np.array([[[[abs_avg[i_struct, irf, iangl, ilamb]
                                     for ilamb in range(len(l_lambdas))]
                                     for iangl in range(len(l_angle))]
                                     for irf in range(len(l_rf))]
-                                    for istru in range(len(l_structure))])
+                                    for i_struct in range(len(l_structure))])
             save.append(abs_avg)
             if (err):
-                abs_min = np.array([[[[abs_min[istru, irf, iangl, ilamb]
+                abs_min = np.array([[[[abs_min[i_struct, irf, iangl, ilamb]
                                         for ilamb in range(len(l_lambdas))]
                                         for iangl in range(len(l_angle))]
                                         for irf in range(len(l_rf))]
-                                        for istru in range(len(l_structure))])
-                abs_max = np.array([[[[abs_max[istru, irf, iangl, ilamb]
+                                        for i_struct in range(len(l_structure))])
+                abs_max = np.array([[[[abs_max[i_struct, irf, iangl, ilamb]
                                         for ilamb in range(len(l_lambdas))]
                                         for iangl in range(len(l_angle))]
                                         for irf in range(len(l_rf))]
-                                        for istru in range(len(l_structure))])
+                                        for i_struct in range(len(l_structure))])
                 save.append(abs_min)
                 save.append(abs_max)
     return save
@@ -863,18 +882,16 @@ def mode_selection(res, kept_modes, variables, params, averaging=True, err=True)
 
 def scat_selection(res, kept_modes, variables, params, averaging=True, err=False):
     """
-        Computes the modes wanted for plotting, indicated by kept_modes.
+        Computes the modes wanted for Angle Out plotting, indicated by kept_modes.
         - averaging tells the function if it should average on repetitions
         -> This is a pretty ugly but quite straightforward function,
            it just has to do very similar things for all cases of kept_modes
         >> Return format is a list of numpy arrays.
            These arrays are in the following order, but only with kept_modes
-           - spec_ref
-           - diff_ref
-           - scat_ref
-           - spec_tr
-           - diff_tr
-           - scat_tr
+           - ref
+           - tr
+           -> Because we are going to plot the out Angles, it makes no sense
+              to separate diffraction, scattering and specular modes
            For each of these reponse types, the following arrays are returned
            - *_reps (all values found, one for each repetition)
               and if averaging is True
@@ -907,7 +924,7 @@ def scat_selection(res, kept_modes, variables, params, averaging=True, err=False
                 t_out_max = dict()
 
     # Computing all variables we want to keep and storing them in dict
-    for istru in range(len(l_structure)):
+    for i_struct in range(len(l_structure)):
         for iangl in range(len(l_angle)):
             for irf in range(len(l_rf)):
                 for ilamb in range(len(l_lambdas)):
@@ -917,108 +934,108 @@ def scat_selection(res, kept_modes, variables, params, averaging=True, err=False
                         n_reps = params.nb_reps
 
 
-                    r_out_reps[istru, irf, iangl, ilamb] = np.array([r_res[istru, irf, iangl, ilamb, l] for l in range(n_reps)])
-                    r_out_angl[istru, irf, iangl, ilamb] = np.array(r_ord[istru, irf, iangl, ilamb, 0])
+                    r_out_reps[i_struct, irf, iangl, ilamb] = np.array([r_res[i_struct, irf, iangl, ilamb, l] for l in range(n_reps)])
+                    r_out_angl[i_struct, irf, iangl, ilamb] = np.array(r_ord[i_struct, irf, iangl, ilamb, 0])
                     if (n_reps == 1 and averaging):
                         # Making sure what we have in the end is easily transformed
                         # in a numpy array, i.e. has the same number of
                         # values on all axis.
-                        r_out_reps[istru, irf, iangl, ilamb] = np.array([r_out_reps[istru, irf, iangl, ilamb][0] for l in range(params.nb_reps)])
+                        r_out_reps[i_struct, irf, iangl, ilamb] = np.array([r_out_reps[i_struct, irf, iangl, ilamb][0] for l in range(params.nb_reps)])
                     if (averaging and "refl" in kept_modes):
-                        r_out_avg[istru, irf, iangl, ilamb] = np.mean(r_out_reps[istru, irf, iangl, ilamb], axis=0)
+                        r_out_avg[i_struct, irf, iangl, ilamb] = np.mean(r_out_reps[i_struct, irf, iangl, ilamb], axis=0)
                         if (err):
-                            r_out_min[istru, irf, iangl, ilamb] = np.min(r_out_reps[istru, irf, iangl, ilamb], axis=0)
-                            r_out_max[istru, irf, iangl, ilamb] = np.max(r_out_reps[istru, irf, iangl, ilamb], axis=0)
+                            r_out_min[i_struct, irf, iangl, ilamb] = np.min(r_out_reps[i_struct, irf, iangl, ilamb], axis=0)
+                            r_out_max[i_struct, irf, iangl, ilamb] = np.max(r_out_reps[i_struct, irf, iangl, ilamb], axis=0)
 
 
                     if ("tran" in kept_modes or "abs" in kept_modes):
 
-                        t_out_reps[istru, irf, iangl, ilamb] = np.array([t_res[istru, irf, iangl, ilamb, l] for l in range(n_reps)])
-                        t_out_angl[istru, irf, iangl, ilamb] = np.array(t_ord[istru, irf, iangl, ilamb, 0])
+                        t_out_reps[i_struct, irf, iangl, ilamb] = np.array([t_res[i_struct, irf, iangl, ilamb, l] for l in range(n_reps)])
+                        t_out_angl[i_struct, irf, iangl, ilamb] = np.array(t_ord[i_struct, irf, iangl, ilamb, 0])
                         if (n_reps == 1 and averaging):
                             # Making sure what we have in the end is easily transformed
                             # in a numpy array, i.e. has the same number of
                             # values on all axis.
-                            t_out_reps[istru, irf, iangl, ilamb] = np.array([t_out_reps[istru, irf, iangl, ilamb] for l in range(params.nb_reps)])
+                            t_out_reps[i_struct, irf, iangl, ilamb] = np.array([t_out_reps[i_struct, irf, iangl, ilamb] for l in range(params.nb_reps)])
 
                         if (averaging and "refl" in kept_modes):
-                            t_out_avg[istru, irf, iangl, ilamb] = np.mean(t_out_reps[istru, irf, iangl, ilamb], axis=0)
+                            t_out_avg[i_struct, irf, iangl, ilamb] = np.mean(t_out_reps[i_struct, irf, iangl, ilamb], axis=0)
                             if (err):
-                                t_out_min[istru, irf, iangl, ilamb] = np.min(t_out_reps[istru, irf, iangl, ilamb], axis=0)
-                                t_out_max[istru, irf, iangl, ilamb] = np.max(t_out_reps[istru, irf, iangl, ilamb], axis=0)
+                                t_out_min[i_struct, irf, iangl, ilamb] = np.min(t_out_reps[i_struct, irf, iangl, ilamb], axis=0)
+                                t_out_max[i_struct, irf, iangl, ilamb] = np.max(t_out_reps[i_struct, irf, iangl, ilamb], axis=0)
 
     # And now saving the kept modes in usable format (numpy arrays)
     # (hopefully, efficiently by list comprehension)
     save = list()
     if ("refl" in kept_modes):
         if not(averaging):
-            r_out_reps = np.array([[[[r_out_reps[istru, irf, iangl, ilamb]
+            r_out_reps = np.array([[[[r_out_reps[i_struct, irf, iangl, ilamb]
                                     for ilamb in range(len(l_lambdas))]
                                     for iangl in range(len(l_angle))]
                                     for irf in range(len(l_rf))]
-                                    for istru in range(len(l_structure))])
+                                    for i_struct in range(len(l_structure))])
             save.append(r_out_reps)
         if (averaging):
-            r_out_avg = np.array([[[[r_out_avg[istru, irf, iangl, ilamb]
+            r_out_avg = np.array([[[[r_out_avg[i_struct, irf, iangl, ilamb]
                                     for ilamb in range(len(l_lambdas))]
                                     for iangl in range(len(l_angle))]
                                     for irf in range(len(l_rf))]
-                                    for istru in range(len(l_structure))])
+                                    for i_struct in range(len(l_structure))])
             save.append(r_out_avg)
             if (err):
-                r_out_min = np.array([[[[r_out_min[istru, irf, iangl, ilamb]
+                r_out_min = np.array([[[[r_out_min[i_struct, irf, iangl, ilamb]
                                         for ilamb in range(len(l_lambdas))]
                                         for iangl in range(len(l_angle))]
                                         for irf in range(len(l_rf))]
-                                        for istru in range(len(l_structure))])
-                r_out_max = np.array([[[[r_out_max[istru, irf, iangl, ilamb]
+                                        for i_struct in range(len(l_structure))])
+                r_out_max = np.array([[[[r_out_max[i_struct, irf, iangl, ilamb]
                                         for ilamb in range(len(l_lambdas))]
                                         for iangl in range(len(l_angle))]
                                         for irf in range(len(l_rf))]
-                                        for istru in range(len(l_structure))])
+                                        for i_struct in range(len(l_structure))])
                 save.append(r_out_min)
                 save.append(r_out_max)
-        r_out_angl = np.array([[[[r_out_angl[istru, irf, iangl, ilamb]
+        r_out_angl = np.array([[[[r_out_angl[i_struct, irf, iangl, ilamb]
                                 for ilamb in range(len(l_lambdas))]
                                 for iangl in range(len(l_angle))]
                                 for irf in range(len(l_rf))]
-                                for istru in range(len(l_structure))])
+                                for i_struct in range(len(l_structure))])
         save.append(r_out_angl)
 
 
     if ("tran" in kept_modes):
         if not(averaging):
-            t_out_reps = np.array([[[[t_out_reps[istru, irf, iangl, ilamb]
+            t_out_reps = np.array([[[[t_out_reps[i_struct, irf, iangl, ilamb]
                                     for ilamb in range(len(l_lambdas))]
                                     for iangl in range(len(l_angle))]
                                     for irf in range(len(l_rf))]
-                                    for istru in range(len(l_structure))])
+                                    for i_struct in range(len(l_structure))])
             save.append(t_out_reps)
         if (averaging):
-            t_out_avg = np.array([[[[t_out_avg[istru, irf, iangl, ilamb]
+            t_out_avg = np.array([[[[t_out_avg[i_struct, irf, iangl, ilamb]
                                     for ilamb in range(len(l_lambdas))]
                                     for iangl in range(len(l_angle))]
                                     for irf in range(len(l_rf))]
-                                    for istru in range(len(l_structure))])
+                                    for i_struct in range(len(l_structure))])
             save.append(t_out_avg)
             if (err):
-                t_out_min = np.array([[[[t_out_min[istru, irf, iangl, ilamb]
+                t_out_min = np.array([[[[t_out_min[i_struct, irf, iangl, ilamb]
                                         for ilamb in range(len(l_lambdas))]
                                         for iangl in range(len(l_angle))]
                                         for irf in range(len(l_rf))]
-                                        for istru in range(len(l_structure))])
-                t_out_max = np.array([[[[t_out_max[istru, irf, iangl, ilamb]
+                                        for i_struct in range(len(l_structure))])
+                t_out_max = np.array([[[[t_out_max[i_struct, irf, iangl, ilamb]
                                         for ilamb in range(len(l_lambdas))]
                                         for iangl in range(len(l_angle))]
                                         for irf in range(len(l_rf))]
-                                        for istru in range(len(l_structure))])
+                                        for i_struct in range(len(l_structure))])
                 save.append(t_out_min)
                 save.append(t_out_max)
-        t_out_angl = np.array([[[[t_out_angl[istru, irf, iangl, ilamb]
+        t_out_angl = np.array([[[[t_out_angl[i_struct, irf, iangl, ilamb]
                                 for ilamb in range(len(l_lambdas))]
                                 for iangl in range(len(l_angle))]
                                 for irf in range(len(l_rf))]
-                                for istru in range(len(l_structure))])
+                                for i_struct in range(len(l_structure))])
         save.append(t_out_angl)
 
     return save
@@ -1136,38 +1153,51 @@ def load_var(saved_var, kept_modes, averaging, err=True):
 
 
 def plot_Lambda(saved_var, kept_modes, variables, params,
-                      averaging=True, save=True, path="", file="", subplots=False):
+                      averaging=True, save=True, path="", file="", subplots=False, err_ev=8):
     """
         Plotting 1D plots of Efficiencies (of type kept_modes) against Lambda
     """
 
     l_structure, l_angle, l_lambdas, l_rf = variables
 
-    err_ev = 8
     # This could be given as a parameter, eventually, but
     # I leave it here for now so that we only have to change it once
     v = load_var(saved_var, kept_modes, averaging)
 
-    for istru in range(len(l_structure)):
+    for i_struct in range(len(l_structure)):
         for i_rf in range(len(l_rf)):
             for i_angle in range(len(l_angle)):
                 # Make one plot for each of these possibilities
                 # (and also for each repetition, if no averaging)
 
-                per = np.round(l_structure[istru].period, 2)
-                prof = np.round(l_structure[istru].prof, 2)
-                width = np.round(l_structure[istru].interf, 2)
+                per = np.round(l_structure[i_struct].period, 2)
+                depth = np.round(l_structure[i_struct].depth, 2)
+                width = np.round(l_structure[i_struct].interf, 2)
                 modes = params.nb_modes
                 theta = np.round(l_angle[i_angle].theta, 2)
                 phi = np.round(l_angle[i_angle].phi, 2)
                 psi = np.round(l_angle[i_angle].psi, 2)
                 rf = np.round(l_rf[i_rf], 2)
+                h_sub = np.round(l_structure[i_struct].height_sub, 2)
+                eps_1 = np.round(l_structure[i_struct].eps_1, 2)
+                eps_2 = np.round(l_structure[i_struct].eps_2, 2)
+                eps_sub = np.round(l_structure[i_struct].eps_sub, 2)
+                eps_3 = np.round(l_structure[i_struct].eps_3, 2)
+                if isinstance(l_structure[i_struct].metal, float) or isinstance(l_structure[i_struct].metal, int):
+                    metal = np.round(l_structure[i_struct].metal, 2)
+                elif isinstance(l_structure[i_struct].metal, str):
+                    metal = l_structure[i_struct].metal
+                else:
+                    metal = ""
                 # Preparing the file name variables
 
                 if (averaging):
                     nb_reps = params.nb_reps
                     filename = (path + "/" + file + "_per_" + str(per)
-                                + "_prof_" + str(prof) + "_width_" + str(width)
+                                + "_depth_" + str(depth) + "_width_" + str(width)
+                                + "_epsDiele_" + str(eps_2) + "_epsMetal_" + str(metal)
+                                + "_epsSubs_" + str(eps_sub) + "_hSubs_" + str(h_sub)
+                                + "_epsUpper_" + str(eps_1) + "_epsLower_" + str(eps_3)
                                 + "_RF_" + str(rf) + "_theta_" + str(theta)
                                 + "_phi_" + str(phi) + "_psi_" + str(psi)
                                 + "_nb_reps_" + str(nb_reps) + "_modes_" + str(modes))
@@ -1175,33 +1205,33 @@ def plot_Lambda(saved_var, kept_modes, variables, params,
                     plt.figure(figsize=(10,10))
                     if ("refl" in kept_modes):
                         if ("spec" in kept_modes):
-                            plt.errorbar(l_lambdas, v.r_spec_avg[istru, i_rf, i_angle],
-                             yerr=np.array([v.err_r_spec_below[istru, i_rf, i_angle], v.err_r_spec_above[istru, i_rf, i_angle]]),
+                            plt.errorbar(l_lambdas, v.r_spec_avg[i_struct, i_rf, i_angle],
+                             yerr=np.array([v.err_r_spec_below[i_struct, i_rf, i_angle], v.err_r_spec_above[i_struct, i_rf, i_angle]]),
                              fmt='b', label="Spec. Reflection", errorevery=err_ev, elinewidth=1.0, capsize=2.0)
                         if ("diff" in kept_modes):
-                            plt.errorbar(l_lambdas, v.r_diff_avg[istru, i_rf, i_angle],
-                            yerr=np.array([v.err_r_diff_below[istru, i_rf, i_angle], v.err_r_diff_above[istru, i_rf, i_angle]]),
+                            plt.errorbar(l_lambdas, v.r_diff_avg[i_struct, i_rf, i_angle],
+                            yerr=np.array([v.err_r_diff_below[i_struct, i_rf, i_angle], v.err_r_diff_above[i_struct, i_rf, i_angle]]),
                             fmt='g', label="Upper Diffr. Orders", errorevery=err_ev, elinewidth=1.0, capsize=2.0)
                         if ("scat" in kept_modes):
-                            plt.errorbar(l_lambdas, v.r_scat_avg[istru, i_rf, i_angle],
-                            yerr=np.array([v.err_r_scat_below[istru, i_rf, i_angle], v.err_r_scat_above[istru, i_rf, i_angle]]),
+                            plt.errorbar(l_lambdas, v.r_scat_avg[i_struct, i_rf, i_angle],
+                            yerr=np.array([v.err_r_scat_below[i_struct, i_rf, i_angle], v.err_r_scat_above[i_struct, i_rf, i_angle]]),
                             fmt='r', label="Upper Scattering", errorevery=err_ev, elinewidth=1.0, capsize=2.0)
                     if ("tran" in kept_modes):
                         if ("spec" in kept_modes):
-                            plt.errorbar(l_lambdas, v.t_spec_avg[istru, i_rf, i_angle],
-                            yerr=np.array([v.err_t_spec_below[istru, i_rf, i_angle], v.err_t_spec_above[istru, i_rf, i_angle]]),
+                            plt.errorbar(l_lambdas, v.t_spec_avg[i_struct, i_rf, i_angle],
+                            yerr=np.array([v.err_t_spec_below[i_struct, i_rf, i_angle], v.err_t_spec_above[i_struct, i_rf, i_angle]]),
                             fmt='b--', label="Spec. Transmission", errorevery=err_ev, elinewidth=1.0, capsize=2.0)
                         if ("diff" in kept_modes):
-                            plt.errorbar(l_lambdas, v.t_diff_avg[istru, i_rf, i_angle],
-                            yerr=np.array([v.err_t_diff_below[istru, i_rf, i_angle], v.err_t_diff_above[istru, i_rf, i_angle]]),
+                            plt.errorbar(l_lambdas, v.t_diff_avg[i_struct, i_rf, i_angle],
+                            yerr=np.array([v.err_t_diff_below[i_struct, i_rf, i_angle], v.err_t_diff_above[i_struct, i_rf, i_angle]]),
                             fmt='g--', label="Lower Diffr. Orders", errorevery=err_ev, elinewidth=1.0, capsize=2.0)
                         if ("scat" in kept_modes):
-                            plt.errorbar(l_lambdas, v.t_scat_avg[istru, i_rf, i_angle],
-                            yerr=np.array([v.err_t_scat_below[istru, i_rf, i_angle], v.err_t_scat_above[istru, i_rf, i_angle]]),
+                            plt.errorbar(l_lambdas, v.t_scat_avg[i_struct, i_rf, i_angle],
+                            yerr=np.array([v.err_t_scat_below[i_struct, i_rf, i_angle], v.err_t_scat_above[i_struct, i_rf, i_angle]]),
                             fmt='r--', label="Lower Scattering", errorevery=err_ev, elinewidth=1.0, capsize=2.0)
                     if ("abs" in kept_modes):
-                        plt.errorbar(l_lambdas, v.abs_avg[istru, i_rf, i_angle],
-                        yerr=np.array([v.err_abs_below[istru, i_rf, i_angle], v.err_abs_above[istru, i_rf, i_angle]]),
+                        plt.errorbar(l_lambdas, v.abs_avg[i_struct, i_rf, i_angle],
+                        yerr=np.array([v.err_abs_below[i_struct, i_rf, i_angle], v.err_abs_above[i_struct, i_rf, i_angle]]),
                         fmt='k', label="Absorption", errorevery=err_ev, elinewidth=1.0, capsize=2.0)
 
                     plt.ylim([0,1.1])
@@ -1234,7 +1264,10 @@ def plot_Lambda(saved_var, kept_modes, variables, params,
                     for irep in range(params.nb_reps):
 
                         filename = (path + "/" + file + "_per_" + str(per)
-                                    + "_prof_" + str(prof) + "_width_" + str(width)
+                                    + "_depth_" + str(depth) + "_width_" + str(width)
+                                    + "_epsDiele_" + str(eps_2) + "_epsMetal_" + str(metal)
+                                    + "_epsSubs_" + str(eps_sub) + "_hSubs_" + str(h_sub)
+                                    + "_epsUpper_" + str(eps_1) + "_epsLower_" + str(eps_3)
                                     + "_RF_" + str(rf) + "_theta_" + str(theta)
                                     + "_phi_" + str(phi) + "_psi_" + str(psi)
                                     + "_irep_" + str(irep) + "_modes_" + str(modes))
@@ -1242,20 +1275,20 @@ def plot_Lambda(saved_var, kept_modes, variables, params,
                         plt.figure(figsize=(10,10))
                         if ("refl" in kept_modes):
                             if ("spec" in kept_modes):
-                                plt.plot(l_lambdas, v.r_spec_reps[istru, i_rf, i_angle, :, irep], 'b', label="Spec. Reflection")
+                                plt.plot(l_lambdas, v.r_spec_reps[i_struct, i_rf, i_angle, :, irep], 'b', label="Spec. Reflection")
                             if ("diff" in kept_modes):
-                                plt.plot(l_lambdas, v.r_diff_reps[istru, i_rf, i_angle, :, irep], 'g', label="Upper Diffr. Orders")
+                                plt.plot(l_lambdas, v.r_diff_reps[i_struct, i_rf, i_angle, :, irep], 'g', label="Upper Diffr. Orders")
                             if ("scat" in kept_modes):
-                                plt.plot(l_lambdas, v.r_scat_reps[istru, i_rf, i_angle, :, irep], 'r', label="Upper Scattering")
+                                plt.plot(l_lambdas, v.r_scat_reps[i_struct, i_rf, i_angle, :, irep], 'r', label="Upper Scattering")
                         if ("tran" in kept_modes):
                             if ("spec" in kept_modes):
-                                plt.plot(l_lambdas, v.t_spec_reps[istru, i_rf, i_angle, :, irep], 'b--', label="Spec. Transmission")
+                                plt.plot(l_lambdas, v.t_spec_reps[i_struct, i_rf, i_angle, :, irep], 'b--', label="Spec. Transmission")
                             if ("diff" in kept_modes):
-                                plt.plot(l_lambdas, v.t_diff_reps[istru, i_rf, i_angle, :, irep], 'g--', label="Lower Diffr. Orders")
+                                plt.plot(l_lambdas, v.t_diff_reps[i_struct, i_rf, i_angle, :, irep], 'g--', label="Lower Diffr. Orders")
                             if ("scat" in kept_modes):
-                                plt.plot(l_lambdas, v.t_scat_reps[istru, i_rf, i_angle, :, irep], 'r--', label="Lower Scattering")
+                                plt.plot(l_lambdas, v.t_scat_reps[i_struct, i_rf, i_angle, :, irep], 'r--', label="Lower Scattering")
                         if ("abs" in kept_modes):
-                            plt.plot(l_lambdas, v.abs_reps[istru, i_rf, i_angle, :, irep], 'k', label="Absorption")
+                            plt.plot(l_lambdas, v.abs_reps[i_struct, i_rf, i_angle, :, irep], 'k', label="Absorption")
 
                         plt.ylim([0,1.1])
                         plt.ylabel("Efficiencies")
@@ -1283,7 +1316,7 @@ def plot_Lambda(saved_var, kept_modes, variables, params,
                         plt.clf()
 
 def plot_Theta(saved_var, kept_modes, variables, params,
-                      averaging=True, save=True, path="", file="", subplots=False):
+                      averaging=True, save=True, path="", file="", subplots=False, err_ev=2):
     """
         Plotting 1D plots of Efficiencies (of type kept_modes) against Lambda
     """
@@ -1294,62 +1327,75 @@ def plot_Theta(saved_var, kept_modes, variables, params,
 
     l_theta = np.array([l_angle[i].theta for i in range(len(l_angle))])
 
-    err_ev = 2
     # This could be given as a parameter, eventually, but
     # I leave it here for now so that we only have to change it once
     v = load_var(saved_var, kept_modes, averaging)
 
-    for istru in range(len(l_structure)):
+    for i_struct in range(len(l_structure)):
         for i_rf in range(len(l_rf)):
             for i_lambda in range(len(l_lambdas)):
                 # Make one plot for each of these possibilities
                 # (and also for each repetition, if no averaging)
 
-                per = np.round(l_structure[istru].period, 2)
-                prof = np.round(l_structure[istru].prof, 2)
-                width = np.round(l_structure[istru].interf, 2)
+                per = np.round(l_structure[i_struct].period, 2)
+                depth = np.round(l_structure[i_struct].depth, 2)
+                width = np.round(l_structure[i_struct].interf, 2)
                 modes = params.nb_modes
                 lambd = np.round(l_lambdas[i_lambda], 2)
                 rf = np.round(l_rf[i_rf], 2)
+                h_sub = np.round(l_structure[i_struct].height_sub, 2)
+                eps_1 = np.round(l_structure[i_struct].eps_1, 2)
+                eps_2 = np.round(l_structure[i_struct].eps_2, 2)
+                eps_sub = np.round(l_structure[i_struct].eps_sub, 2)
+                eps_3 = np.round(l_structure[i_struct].eps_3, 2)
+                if isinstance(l_structure[i_struct].metal, float) or isinstance(l_structure[i_struct].metal, int):
+                    metal = np.round(l_structure[i_struct].metal, 2)
+                elif isinstance(l_structure[i_struct].metal, str):
+                    metal = l_structure[i_struct].metal
+                else:
+                    metal = ""
                 # Preparing the file name variables
 
                 if (averaging):
                     nb_reps = params.nb_reps
                     filename = (path + "/" + file + "_per_" + str(per)
-                                + "_prof_" + str(prof) + "_width_" + str(width)
+                                + "_depth_" + str(depth) + "_width_" + str(width)
+                                + "_epsDiele_" + str(eps_2) + "_epsMetal_" + str(metal)
+                                + "_epsSubs_" + str(eps_sub) + "_hSubs_" + str(h_sub)
+                                + "_epsUpper_" + str(eps_1) + "_epsLower_" + str(eps_3)
                                 + "_RF_" + str(rf) + "_Lambda_" + str(lambd)
                                 + "_nb_reps_" + str(nb_reps) + "_modes_" + str(modes))
 
                     plt.figure(figsize=(10,10))
                     if ("refl" in kept_modes):
                         if ("spec" in kept_modes):
-                            plt.errorbar(l_theta, v.r_spec_avg[istru, i_rf, :, i_lambda],
-                             yerr=np.array([v.err_r_spec_below[istru, i_rf, :, i_lambda], v.err_r_spec_above[istru, i_rf, :, i_lambda]]),
+                            plt.errorbar(l_theta, v.r_spec_avg[i_struct, i_rf, :, i_lambda],
+                             yerr=np.array([v.err_r_spec_below[i_struct, i_rf, :, i_lambda], v.err_r_spec_above[i_struct, i_rf, :, i_lambda]]),
                              fmt='b', label="Spec. Reflection", errorevery=err_ev, elinewidth=1.0, capsize=2.0)
                         if ("diff" in kept_modes):
-                            plt.errorbar(l_theta, v.r_diff_avg[istru, i_rf, :, i_lambda],
-                            yerr=np.array([v.err_r_diff_below[istru, i_rf, :, i_lambda], v.err_r_diff_above[istru, i_rf, :, i_lambda]]),
+                            plt.errorbar(l_theta, v.r_diff_avg[i_struct, i_rf, :, i_lambda],
+                            yerr=np.array([v.err_r_diff_below[i_struct, i_rf, :, i_lambda], v.err_r_diff_above[i_struct, i_rf, :, i_lambda]]),
                             fmt='g', label="Upper Diffr. Orders", errorevery=err_ev, elinewidth=1.0, capsize=2.0)
                         if ("scat" in kept_modes):
-                            plt.errorbar(l_theta, v.r_scat_avg[istru, i_rf, :, i_lambda],
-                            yerr=np.array([v.err_r_scat_below[istru, i_rf, :, i_lambda], v.err_r_scat_above[istru, i_rf, :, i_lambda]]),
+                            plt.errorbar(l_theta, v.r_scat_avg[i_struct, i_rf, :, i_lambda],
+                            yerr=np.array([v.err_r_scat_below[i_struct, i_rf, :, i_lambda], v.err_r_scat_above[i_struct, i_rf, :, i_lambda]]),
                             fmt='r', label="Upper Scattering", errorevery=err_ev, elinewidth=1.0, capsize=2.0)
                     if ("tran" in kept_modes):
                         if ("spec" in kept_modes):
-                            plt.errorbar(l_theta, v.t_spec_avg[istru, i_rf, :, i_lambda],
-                            yerr=np.array([v.err_t_spec_below[istru, i_rf, :, i_lambda], v.err_t_spec_above[istru, i_rf, :, i_lambda]]),
+                            plt.errorbar(l_theta, v.t_spec_avg[i_struct, i_rf, :, i_lambda],
+                            yerr=np.array([v.err_t_spec_below[i_struct, i_rf, :, i_lambda], v.err_t_spec_above[i_struct, i_rf, :, i_lambda]]),
                             fmt='b--', label="Spec. Transmission", errorevery=err_ev, elinewidth=1.0, capsize=2.0)
                         if ("diff" in kept_modes):
-                            plt.errorbar(l_theta, v.t_diff_avg[istru, i_rf, :, i_lambda],
-                            yerr=np.array([v.err_t_diff_below[istru, i_rf, :, i_lambda], v.err_t_diff_above[istru, i_rf, :, i_lambda]]),
+                            plt.errorbar(l_theta, v.t_diff_avg[i_struct, i_rf, :, i_lambda],
+                            yerr=np.array([v.err_t_diff_below[i_struct, i_rf, :, i_lambda], v.err_t_diff_above[i_struct, i_rf, :, i_lambda]]),
                             fmt='g--', label="Lower Diffr. Orders", errorevery=err_ev, elinewidth=1.0, capsize=2.0)
                         if ("scat" in kept_modes):
-                            plt.errorbar(l_theta, v.t_scat_avg[istru, i_rf, :, i_lambda],
-                            yerr=np.array([v.err_t_scat_below[istru, i_rf, :, i_lambda], v.err_t_scat_above[istru, i_rf, :, i_lambda]]),
+                            plt.errorbar(l_theta, v.t_scat_avg[i_struct, i_rf, :, i_lambda],
+                            yerr=np.array([v.err_t_scat_below[i_struct, i_rf, :, i_lambda], v.err_t_scat_above[i_struct, i_rf, :, i_lambda]]),
                             fmt='r--', label="Lower Scattering", errorevery=err_ev, elinewidth=1.0, capsize=2.0)
                     if ("abs" in kept_modes):
-                        plt.errorbar(l_theta, v.abs_avg[istru, i_rf, :, i_lambda],
-                        yerr=np.array([v.err_abs_below[istru, i_rf, :, i_lambda], v.err_abs_above[istru, i_rf, :, i_lambda]]),
+                        plt.errorbar(l_theta, v.abs_avg[i_struct, i_rf, :, i_lambda],
+                        yerr=np.array([v.err_abs_below[i_struct, i_rf, :, i_lambda], v.err_abs_above[i_struct, i_rf, :, i_lambda]]),
                         fmt='k', label="Absorption", errorevery=err_ev, elinewidth=1.0, capsize=2.0)
 
                     plt.ylim([0,1.1])
@@ -1370,7 +1416,10 @@ def plot_Theta(saved_var, kept_modes, variables, params,
                     for irep in range(params.nb_reps):
 
                         filename = (path + "/" + file + "_per_" + str(per)
-                                    + "_prof_" + str(prof) + "_width_" + str(width)
+                                    + "_depth_" + str(depth) + "_width_" + str(width)
+                                    + "_epsDiele_" + str(eps_2) + "_epsMetal_" + str(metal)
+                                    + "_epsSubs_" + str(eps_sub) + "_hSubs_" + str(h_sub)
+                                    + "_epsUpper_" + str(eps_1) + "_epsLower_" + str(eps_3)
                                     + "_RF_" + str(rf) + "_Lambda_" + str(lambd)
                                     + "_irep_" + str(irep) + "_modes_" + str(modes))
 
@@ -1378,20 +1427,20 @@ def plot_Theta(saved_var, kept_modes, variables, params,
                         if ("refl" in kept_modes):
                             if ("spec" in kept_modes):
                                 print(np.shape(v.r_spec_reps))
-                                plt.plot(l_theta, v.r_spec_reps[istru, i_rf, :, i_lambda, irep], 'b', label="Spec. Reflection")
+                                plt.plot(l_theta, v.r_spec_reps[i_struct, i_rf, :, i_lambda, irep], 'b', label="Spec. Reflection")
                             if ("diff" in kept_modes):
-                                plt.plot(l_theta, v.r_diff_reps[istru, i_rf, :, i_lambda, irep], 'g', label="Upper Diffr. Orders")
+                                plt.plot(l_theta, v.r_diff_reps[i_struct, i_rf, :, i_lambda, irep], 'g', label="Upper Diffr. Orders")
                             if ("scat" in kept_modes):
-                                plt.plot(l_theta, v.r_scat_reps[istru, i_rf, :, i_lambda, irep], 'r', label="Upper Scattering")
+                                plt.plot(l_theta, v.r_scat_reps[i_struct, i_rf, :, i_lambda, irep], 'r', label="Upper Scattering")
                         if ("tran" in kept_modes):
                             if ("spec" in kept_modes):
-                                plt.plot(l_theta, v.t_spec_reps[istru, i_rf, :, i_lambda, irep], 'b--', label="Spec. Transmission")
+                                plt.plot(l_theta, v.t_spec_reps[i_struct, i_rf, :, i_lambda, irep], 'b--', label="Spec. Transmission")
                             if ("diff" in kept_modes):
-                                plt.plot(l_theta, v.t_diff_reps[istru, i_rf, :, i_lambda, irep], 'g--', label="Lower Diffr. Orders")
+                                plt.plot(l_theta, v.t_diff_reps[i_struct, i_rf, :, i_lambda, irep], 'g--', label="Lower Diffr. Orders")
                             if ("scat" in kept_modes):
-                                plt.plot(l_theta, v.t_scat_reps[istru, i_rf, :, i_lambda, irep], 'r--', label="Lower Scattering")
+                                plt.plot(l_theta, v.t_scat_reps[i_struct, i_rf, :, i_lambda, irep], 'r--', label="Lower Scattering")
                         if ("abs" in kept_modes):
-                            plt.plot(l_theta, v.abs_reps[istru, i_rf, :, i_lambda, irep], 'k', label="Absorption")
+                            plt.plot(l_theta, v.abs_reps[i_struct, i_rf, :, i_lambda, irep], 'k', label="Absorption")
 
                         plt.ylim([0,1.1])
                         plt.xlabel("Incident Angle ({})".format(params.unit_angle_plot))
@@ -1405,38 +1454,51 @@ def plot_Theta(saved_var, kept_modes, variables, params,
                         plt.clf()
 
 def plot_RF(saved_var, kept_modes, variables, params,
-                      averaging=True, save=True, path="", file="", subplots=False):
+                      averaging=True, save=True, path="", file="", subplots=False, err_ev=2):
     """
         Plotting 1D plots of Efficiencies (of type kept_modes) against Lambda
     """
 
     l_structure, l_angle, l_lambdas, l_rf = variables
 
-    err_ev = 2
     # This could be given as a parameter, eventually, but
     # I leave it here for now so that we only have to change it once
     v = load_var(saved_var, kept_modes, averaging)
 
-    for istru in range(len(l_structure)):
+    for i_struct in range(len(l_structure)):
         for i_angle in range(len(l_angle)):
             for i_lambda in range(len(l_lambdas)):
                 # Make one plot for each of these possibilities
                 # (and also for each repetition, if no averaging)
 
-                per = np.round(l_structure[istru].period, 2)
-                prof = np.round(l_structure[istru].prof, 2)
-                width = np.round(l_structure[istru].interf, 2)
+                per = np.round(l_structure[i_struct].period, 2)
+                depth = np.round(l_structure[i_struct].depth, 2)
+                width = np.round(l_structure[i_struct].interf, 2)
                 modes = params.nb_modes
                 theta = np.round(l_angle[i_angle].theta, 2)
                 phi = np.round(l_angle[i_angle].phi, 2)
                 psi = np.round(l_angle[i_angle].psi, 2)
                 lambd = np.round(l_lambdas[i_lambda], 2)
+                h_sub = np.round(l_structure[i_struct].height_sub, 2)
+                eps_1 = np.round(l_structure[i_struct].eps_1, 2)
+                eps_2 = np.round(l_structure[i_struct].eps_2, 2)
+                eps_sub = np.round(l_structure[i_struct].eps_sub, 2)
+                eps_3 = np.round(l_structure[i_struct].eps_3, 2)
+                if isinstance(l_structure[i_struct].metal, float) or isinstance(l_structure[i_struct].metal, int):
+                    metal = np.round(l_structure[i_struct].metal, 2)
+                elif isinstance(l_structure[i_struct].metal, str):
+                    metal = l_structure[i_struct].metal
+                else:
+                    metal = ""
                 # Preparing the file name variables
 
                 if (averaging):
                     nb_reps = params.nb_reps
                     filename = (path + "/" + file + "_per_" + str(per)
-                                + "_prof_" + str(prof) + "_width_" + str(width)
+                                + "_depth_" + str(depth) + "_width_" + str(width)
+                                + "_epsDiele_" + str(eps_2) + "_epsMetal_" + str(metal)
+                                + "_epsSubs_" + str(eps_sub) + "_hSubs_" + str(h_sub)
+                                + "_epsUpper_" + str(eps_1) + "_epsLower_" + str(eps_3)
                                 + "_Lambda_" + str(lambd) + "_theta_" + str(theta)
                                 + "_phi_" + str(phi) + "_psi_" + str(psi)
                                 + "_nb_reps_" + str(nb_reps) + "_modes_" + str(modes))
@@ -1444,33 +1506,33 @@ def plot_RF(saved_var, kept_modes, variables, params,
                     plt.figure(figsize=(10,10))
                     if ("refl" in kept_modes):
                         if ("spec" in kept_modes):
-                            plt.errorbar(l_rf, v.r_spec_avg[istru, :, i_angle, i_lambda],
-                             yerr=np.array([v.err_r_spec_below[istru, :, i_angle, i_lambda], v.err_r_spec_above[istru, :, i_angle, i_lambda]]),
+                            plt.errorbar(l_rf, v.r_spec_avg[i_struct, :, i_angle, i_lambda],
+                             yerr=np.array([v.err_r_spec_below[i_struct, :, i_angle, i_lambda], v.err_r_spec_above[i_struct, :, i_angle, i_lambda]]),
                              fmt='b', label="Spec. Reflection", errorevery=err_ev, elinewidth=1.0, capsize=2.0)
                         if ("diff" in kept_modes):
-                            plt.errorbar(l_rf, v.r_diff_avg[istru, :, i_angle, i_lambda],
-                            yerr=np.array([v.err_r_diff_below[istru, :, i_angle, i_lambda], v.err_r_diff_above[istru, :, i_angle, i_lambda]]),
+                            plt.errorbar(l_rf, v.r_diff_avg[i_struct, :, i_angle, i_lambda],
+                            yerr=np.array([v.err_r_diff_below[i_struct, :, i_angle, i_lambda], v.err_r_diff_above[i_struct, :, i_angle, i_lambda]]),
                             fmt='g', label="Upper Diffr. Orders", errorevery=err_ev, elinewidth=1.0, capsize=2.0)
                         if ("scat" in kept_modes):
-                            plt.errorbar(l_rf, v.r_scat_avg[istru, :, i_angle, i_lambda],
-                            yerr=np.array([v.err_r_scat_below[istru, :, i_angle, i_lambda], v.err_r_scat_above[istru, :, i_angle, i_lambda]]),
+                            plt.errorbar(l_rf, v.r_scat_avg[i_struct, :, i_angle, i_lambda],
+                            yerr=np.array([v.err_r_scat_below[i_struct, :, i_angle, i_lambda], v.err_r_scat_above[i_struct, :, i_angle, i_lambda]]),
                             fmt='r', label="Upper Scattering", errorevery=err_ev, elinewidth=1.0, capsize=2.0)
                     if ("tran" in kept_modes):
                         if ("spec" in kept_modes):
-                            plt.errorbar(l_rf, v.t_spec_avg[istru, :, i_angle, i_lambda],
-                            yerr=np.array([v.err_t_spec_below[istru, :, i_angle, i_lambda], v.err_t_spec_above[istru, :, i_angle, i_lambda]]),
+                            plt.errorbar(l_rf, v.t_spec_avg[i_struct, :, i_angle, i_lambda],
+                            yerr=np.array([v.err_t_spec_below[i_struct, :, i_angle, i_lambda], v.err_t_spec_above[i_struct, :, i_angle, i_lambda]]),
                             fmt='b--', label="Spec. Transmission", errorevery=err_ev, elinewidth=1.0, capsize=2.0)
                         if ("diff" in kept_modes):
-                            plt.errorbar(l_rf, v.t_diff_avg[istru, :, i_angle, i_lambda],
-                            yerr=np.array([v.err_t_diff_below[istru, :, i_angle, i_lambda], v.err_t_diff_above[istru, :, i_angle, i_lambda]]),
+                            plt.errorbar(l_rf, v.t_diff_avg[i_struct, :, i_angle, i_lambda],
+                            yerr=np.array([v.err_t_diff_below[i_struct, :, i_angle, i_lambda], v.err_t_diff_above[i_struct, :, i_angle, i_lambda]]),
                             fmt='g--', label="Lower Diffr. Orders", errorevery=err_ev, elinewidth=1.0, capsize=2.0)
                         if ("scat" in kept_modes):
-                            plt.errorbar(l_rf, v.t_scat_avg[istru, :, i_angle, i_lambda],
-                            yerr=np.array([v.err_t_scat_below[istru, :, i_angle, i_lambda], v.err_t_scat_above[istru, :, i_angle, i_lambda]]),
+                            plt.errorbar(l_rf, v.t_scat_avg[i_struct, :, i_angle, i_lambda],
+                            yerr=np.array([v.err_t_scat_below[i_struct, :, i_angle, i_lambda], v.err_t_scat_above[i_struct, :, i_angle, i_lambda]]),
                             fmt='r--', label="Lower Scattering", errorevery=err_ev, elinewidth=1.0, capsize=2.0)
                     if ("abs" in kept_modes):
-                        plt.errorbar(l_rf, v.abs_avg[istru, :, i_angle, i_lambda],
-                        yerr=np.array([v.err_abs_below[istru, :, i_angle, i_lambda], v.err_abs_above[istru, :, i_angle, i_lambda]]),
+                        plt.errorbar(l_rf, v.abs_avg[i_struct, :, i_angle, i_lambda],
+                        yerr=np.array([v.err_abs_below[i_struct, :, i_angle, i_lambda], v.err_abs_above[i_struct, :, i_angle, i_lambda]]),
                         fmt='k', label="Absorption", errorevery=err_ev, elinewidth=1.0, capsize=2.0)
 
                     plt.ylim([0,1.1])
@@ -1491,7 +1553,10 @@ def plot_RF(saved_var, kept_modes, variables, params,
                     for irep in range(params.nb_reps):
 
                         filename = (path + "/" + file + "_per_" + str(per)
-                                    + "_prof_" + str(prof) + "_width_" + str(width)
+                                    + "_depth_" + str(depth) + "_width_" + str(width)
+                                    + "_epsDiele_" + str(eps_2) + "_epsMetal_" + str(metal)
+                                    + "_epsSubs_" + str(eps_sub) + "_hSubs_" + str(h_sub)
+                                    + "_epsUpper_" + str(eps_1) + "_epsLower_" + str(eps_3)
                                     + "_Lambda_" + str(lambd) + "_theta_" + str(theta)
                                     + "_phi_" + str(phi) + "_psi_" + str(psi)
                                     + "_irep_" + str(irep) + "_modes_" + str(modes))
@@ -1499,25 +1564,25 @@ def plot_RF(saved_var, kept_modes, variables, params,
                         plt.figure(figsize=(10,10))
                         if ("refl" in kept_modes):
                             if ("spec" in kept_modes):
-                                plt.plot(l_rf, v.r_spec_reps[istru, :, i_angle, i_lambda, irep], 'b', label="Spec. Reflection")
+                                plt.plot(l_rf, v.r_spec_reps[i_struct, :, i_angle, i_lambda, irep], 'b', label="Spec. Reflection")
                             if ("diff" in kept_modes):
-                                plt.plot(l_rf, v.r_diff_reps[istru, :, i_angle, i_lambda, irep], 'g', label="Upper Diffr. Orders")
+                                plt.plot(l_rf, v.r_diff_reps[i_struct, :, i_angle, i_lambda, irep], 'g', label="Upper Diffr. Orders")
                             if ("scat" in kept_modes):
-                                plt.plot(l_rf, v.r_scat_reps[istru, :, i_angle, i_lambda, irep], 'r', label="Upper Scattering")
+                                plt.plot(l_rf, v.r_scat_reps[i_struct, :, i_angle, i_lambda, irep], 'r', label="Upper Scattering")
                         if ("tran" in kept_modes):
                             if ("spec" in kept_modes):
-                                plt.plot(l_rf, v.t_spec_reps[istru, :, i_angle, i_lambda, irep], 'b--', label="Spec. Transmission")
+                                plt.plot(l_rf, v.t_spec_reps[i_struct, :, i_angle, i_lambda, irep], 'b--', label="Spec. Transmission")
                             if ("diff" in kept_modes):
-                                plt.plot(l_rf, v.t_diff_reps[istru, :, i_angle, i_lambda, irep], 'g--', label="Lower Diffr. Orders")
+                                plt.plot(l_rf, v.t_diff_reps[i_struct, :, i_angle, i_lambda, irep], 'g--', label="Lower Diffr. Orders")
                             if ("scat" in kept_modes):
-                                plt.plot(l_rf, v.t_scat_reps[istru, :, i_angle, i_lambda, irep], 'r--', label="Lower Scattering")
+                                plt.plot(l_rf, v.t_scat_reps[i_struct, :, i_angle, i_lambda, irep], 'r--', label="Lower Scattering")
                         if ("abs" in kept_modes):
-                            plt.plot(l_rf, v.abs_reps[istru, :, i_angle, i_lambda, irep], 'k', label="Absorption")
+                            plt.plot(l_rf, v.abs_reps[i_struct, :, i_angle, i_lambda, irep], 'k', label="Absorption")
 
 
 
 def plot_LambdaTheta(saved_var, kept_modes, variables, params,
-              averaging, save, path, file, subplots=False, contours=0):
+              averaging, save, path="", file="", subplots=False, contours=0):
     """
         2D plot (plt.pcolor) Wavelength/Incidence Angle
         Here, only one outgoing field is plotted on each graph
@@ -1527,14 +1592,25 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
 
     v = load_var(saved_var, kept_modes, averaging, err=False)
 
-    for istru in range(len(l_structure)):
+    for i_struct in range(len(l_structure)):
         for irf in range(len(l_rf)):
 
-            per = np.round(l_structure[istru].period, 2)
-            prof = np.round(l_structure[istru].prof, 2)
-            width = np.round(l_structure[istru].interf, 2)
+            per = np.round(l_structure[i_struct].period, 2)
+            depth = np.round(l_structure[i_struct].depth, 2)
+            width = np.round(l_structure[i_struct].interf, 2)
             modes = params.nb_modes
             rf = np.round(l_rf[irf], 2)
+            h_sub = np.round(l_structure[i_struct].height_sub, 2)
+            eps_1 = np.round(l_structure[i_struct].eps_1, 2)
+            eps_2 = np.round(l_structure[i_struct].eps_2, 2)
+            eps_sub = np.round(l_structure[i_struct].eps_sub, 2)
+            eps_3 = np.round(l_structure[i_struct].eps_3, 2)
+            if isinstance(l_structure[i_struct].metal, float) or isinstance(l_structure[i_struct].metal, int):
+                metal = np.round(l_structure[i_struct].metal, 2)
+            elif isinstance(l_structure[i_struct].metal, str):
+                metal = l_structure[i_struct].metal
+            else:
+                metal = ""
             # Preparing the file name variables
 
             l_thetas = np.array([l_angle[i].theta for i in range(len(l_angle))])
@@ -1543,16 +1619,19 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
             if (averaging):
                 nb_reps = params.nb_reps
                 filename = (file + "_per_" + str(per)
-                            + "_prof_" + str(prof) + "_width_" + str(width)
+                            + "_depth_" + str(depth) + "_width_" + str(width)
+                            + "_epsDiele_" + str(eps_2) + "_epsMetal_" + str(metal)
+                            + "_epsSubs_" + str(eps_sub) + "_hSubs_" + str(h_sub)
+                            + "_epsUpper_" + str(eps_1) + "_epsLower_" + str(eps_3)
                             + "_rf_" + str(rf) + "_nbreps_" + str(nb_reps)
                             + "_modes_" + str(modes))
 
                 if ("refl" in kept_modes):
                     if ("spec" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.r_spec_avg[istru, irf], cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.r_spec_avg[i_struct, irf], cmap='viridis')
                         if (contours):
-                            plt.contour(X, Y, v.r_spec_avg[istru, irf], contours, colors="k")
+                            plt.contour(X, Y, v.r_spec_avg[i_struct, irf], contours, colors="k")
                         plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                         plt.ylabel("Incidence Angle({})".format(params.unit_angle_plot))
                         plt.colorbar(CS)
@@ -1563,9 +1642,9 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
                         plt.clf()
                     if ("diff" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.r_diff_avg[istru, irf], cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.r_diff_avg[i_struct, irf], cmap='viridis')
                         if (contours):
-                            plt.contour(X, Y, v.r_diff_avg[istru, irf], contours, colors="k")
+                            plt.contour(X, Y, v.r_diff_avg[i_struct, irf], contours, colors="k")
                         plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                         plt.ylabel("Incidence Angle({})".format(params.unit_angle_plot))
                         plt.colorbar(CS)
@@ -1576,9 +1655,9 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
                         plt.clf()
                     if ("scat" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.r_scat_avg[istru, irf], cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.r_scat_avg[i_struct, irf], cmap='viridis')
                         if (contours):
-                            plt.contour(X, Y, v.r_scat_avg[istru, irf], contours, colors="k")
+                            plt.contour(X, Y, v.r_scat_avg[i_struct, irf], contours, colors="k")
                         plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                         plt.ylabel("Incidence Angle({})".format(params.unit_angle_plot))
                         plt.colorbar(CS)
@@ -1590,9 +1669,9 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
                 if ("tran" in kept_modes):
                     if ("spec" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.t_spec_avg[istru, irf], cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.t_spec_avg[i_struct, irf], cmap='viridis')
                         if (contours):
-                            plt.contour(X, Y, v.t_spec_avg[istru, irf], contours, colors="k")
+                            plt.contour(X, Y, v.t_spec_avg[i_struct, irf], contours, colors="k")
 
                         if (params.unit_lambda_plot=='Hz'):
                             ax1 = plt.gca()
@@ -1618,9 +1697,9 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
                         plt.clf()
                     if ("diff" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.t_diff_avg[istru, irf], cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.t_diff_avg[i_struct, irf], cmap='viridis')
                         if (contours):
-                            plt.contour(X, Y, v.t_diff_avg[istru, irf], contours, colors="k")
+                            plt.contour(X, Y, v.t_diff_avg[i_struct, irf], contours, colors="k")
                         plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                         plt.ylabel("Incidence Angle({})".format(params.unit_angle_plot))
                         plt.colorbar(CS)
@@ -1631,9 +1710,9 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
                         plt.clf()
                     if ("scat" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.t_scat_avg[istru, irf], cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.t_scat_avg[i_struct, irf], cmap='viridis')
                         if (contours):
-                            plt.contour(X, Y, v.t_scat_avg[istru, irf], contours, colors="k")
+                            plt.contour(X, Y, v.t_scat_avg[i_struct, irf], contours, colors="k")
                         plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                         plt.ylabel("Incidence Angle({})".format(params.unit_angle_plot))
                         plt.colorbar(CS)
@@ -1644,9 +1723,9 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
                         plt.clf()
                 if ("abs" in kept_modes):
                     plt.figure(figsize=(10,10))
-                    CS = plt.pcolormesh(X, Y, v.abs_avg[istru, irf], cmap='viridis')
+                    CS = plt.pcolormesh(X, Y, v.abs_avg[i_struct, irf], cmap='viridis')
                     if (contours):
-                        plt.contour(X, Y, v.abs_avg[istru, irf], contours, colors="k")
+                        plt.contour(X, Y, v.abs_avg[i_struct, irf], contours, colors="k")
                     plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                     plt.ylabel("Incidence Angle({})".format(params.unit_angle_plot))
                     plt.colorbar(CS)
@@ -1659,16 +1738,19 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
             if not(averaging):
                 for irep in range(params.nb_reps):
                     filename = (file + "_per_" + str(per)
-                                + "_prof_" + str(prof) + "_width_" + str(width)
+                                + "_depth_" + str(depth) + "_width_" + str(width)
+                                + "_epsDiele_" + str(eps_2) + "_epsMetal_" + str(metal)
+                                + "_epsSubs_" + str(eps_sub) + "_hSubs_" + str(h_sub)
+                                + "_epsUpper_" + str(eps_1) + "_epsLower_" + str(eps_3)
                                 + "_rf_" + str(rf) + "_irep_" + str(irep)
                                 + "_modes_" + str(modes))
 
                     if ("refl" in kept_modes):
                         if ("spec" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.r_spec_reps[istru, irf, :, :, irep], cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.r_spec_reps[i_struct, irf, :, :, irep], cmap='viridis')
                             if (contours):
-                                plt.contour(X, Y, v.r_spec_reps[istru, irf, :, :, irep], contours, colors="k")
+                                plt.contour(X, Y, v.r_spec_reps[i_struct, irf, :, :, irep], contours, colors="k")
                             plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                             plt.ylabel("Incidence Angle({})".format(params.unit_angle_plot))
                             plt.colorbar(CS)
@@ -1679,9 +1761,9 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
                             plt.clf()
                         if ("diff" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.r_diff_reps[istru, irf, :, :, irep], cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.r_diff_reps[i_struct, irf, :, :, irep], cmap='viridis')
                             if (contours):
-                                plt.contour(X, Y, v.r_diff_reps[istru, irf, :, :, irep], contours, colors="k")
+                                plt.contour(X, Y, v.r_diff_reps[i_struct, irf, :, :, irep], contours, colors="k")
                             plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                             plt.ylabel("Incidence Angle({})".format(params.unit_angle_plot))
                             plt.colorbar(CS)
@@ -1692,9 +1774,9 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
                             plt.clf()
                         if ("scat" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.r_scat_reps[istru, irf, :, :, irep], cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.r_scat_reps[i_struct, irf, :, :, irep], cmap='viridis')
                             if (contours):
-                                plt.contour(X, Y, v.r_scat_reps[istru, irf, :, :, irep], contours, colors="k")
+                                plt.contour(X, Y, v.r_scat_reps[i_struct, irf, :, :, irep], contours, colors="k")
                             plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                             plt.ylabel("Incidence Angle({})".format(params.unit_angle_plot))
                             plt.colorbar(CS)
@@ -1706,9 +1788,9 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
                     if ("tran" in kept_modes):
                         if ("spec" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.t_spec_reps[istru, irf, :, :, irep], cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.t_spec_reps[i_struct, irf, :, :, irep], cmap='viridis')
                             if (contours):
-                                plt.contour(X, Y, v.t_spec_reps[istru, irf, :, :, irep], contours, colors="k")
+                                plt.contour(X, Y, v.t_spec_reps[i_struct, irf, :, :, irep], contours, colors="k")
 
                             if (params.unit_lambda_plot=='Hz'):
                                 ax1 = plt.gca()
@@ -1734,9 +1816,9 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
                             plt.clf()
                         if ("diff" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.t_diff_reps[istru, irf, :, :, irep], cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.t_diff_reps[i_struct, irf, :, :, irep], cmap='viridis')
                             if (contours):
-                                plt.contour(X, Y, v.t_diff_reps[istru, irf, :, :, irep], contours, colors="k")
+                                plt.contour(X, Y, v.t_diff_reps[i_struct, irf, :, :, irep], contours, colors="k")
                             plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                             plt.ylabel("Incidence Angle({})".format(params.unit_angle_plot))
                             plt.colorbar(CS)
@@ -1747,9 +1829,9 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
                             plt.clf()
                         if ("scat" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.t_scat_reps[istru, irf, :, :, irep], cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.t_scat_reps[i_struct, irf, :, :, irep], cmap='viridis')
                             if (contours):
-                                plt.contour(X, Y, v.t_scat_reps[istru, irf, :, :, irep], contours, colors="k")
+                                plt.contour(X, Y, v.t_scat_reps[i_struct, irf, :, :, irep], contours, colors="k")
                             plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                             plt.ylabel("Incidence Angle({})".format(params.unit_angle_plot))
                             plt.colorbar(CS)
@@ -1760,9 +1842,9 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
                             plt.clf()
                     if ("abs" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.abs_reps[istru, irf, :, :, irep], cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.abs_reps[i_struct, irf, :, :, irep], cmap='viridis')
                         if (contours):
-                            plt.contour(X, Y, v.abs_reps[istru, irf, :, :, irep], contours, colors="k")
+                            plt.contour(X, Y, v.abs_reps[i_struct, irf, :, :, irep], contours, colors="k")
                         plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                         plt.ylabel("Incidence Angle({})".format(params.unit_angle_plot))
                         plt.colorbar(CS)
@@ -1774,7 +1856,7 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
 
 
 def plot_SigmaKx(saved_var, kept_modes, variables, params,
-              averaging, save, path, file, subplots=False):
+              averaging, save, path="", file="", subplots=False):
     """
         2D plot (plt.pcolor) Wavelength/Incidence Angle
         Here, only one outgoing field is plotted on each graph
@@ -1784,14 +1866,25 @@ def plot_SigmaKx(saved_var, kept_modes, variables, params,
 
     v = load_var(saved_var, kept_modes, averaging, err=False)
 
-    for istru in range(len(l_structure)):
+    for i_struct in range(len(l_structure)):
         for irf in range(len(l_rf)):
 
-            per = np.round(l_structure[istru].period, 2)
-            prof = np.round(l_structure[istru].prof, 2)
-            width = np.round(l_structure[istru].interf, 2)
+            per = np.round(l_structure[i_struct].period, 2)
+            depth = np.round(l_structure[i_struct].depth, 2)
+            width = np.round(l_structure[i_struct].interf, 2)
             modes = params.nb_modes
             rf = np.round(l_rf[irf], 2)
+            h_sub = np.round(l_structure[i_struct].height_sub, 2)
+            eps_1 = np.round(l_structure[i_struct].eps_1, 2)
+            eps_2 = np.round(l_structure[i_struct].eps_2, 2)
+            eps_sub = np.round(l_structure[i_struct].eps_sub, 2)
+            eps_3 = np.round(l_structure[i_struct].eps_3, 2)
+            if isinstance(l_structure[i_struct].metal, float) or isinstance(l_structure[i_struct].metal, int):
+                metal = np.round(l_structure[i_struct].metal, 2)
+            elif isinstance(l_structure[i_struct].metal, str):
+                metal = l_structure[i_struct].metal
+            else:
+                metal = ""
             # Preparing the file name variables
 
             l_thetas = np.array([l_angle[i].theta for i in range(len(l_angle))])
@@ -1803,14 +1896,17 @@ def plot_SigmaKx(saved_var, kept_modes, variables, params,
             if (averaging):
                 nb_reps = params.nb_reps
                 filename = (file + "_per_" + str(per)
-                            + "_prof_" + str(prof) + "_width_" + str(width)
+                            + "_depth_" + str(depth) + "_width_" + str(width)
+                            + "_epsDiele_" + str(eps_2) + "_epsMetal_" + str(metal)
+                            + "_epsSubs_" + str(eps_sub) + "_hSubs_" + str(h_sub)
+                            + "_epsUpper_" + str(eps_1) + "_epsLower_" + str(eps_3)
                             + "_rf_" + str(rf) + "_nbreps_" + str(nb_reps)
                             + "_modes_" + str(modes))
 
                 if ("refl" in kept_modes):
                     if ("spec" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.r_spec_avg[istru, irf].T, cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.r_spec_avg[i_struct, irf].T, cmap='viridis')
                         plt.ylabel("Wavelength ({})".format(params.unit_lambda_plot))
                         plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                         plt.colorbar(CS)
@@ -1821,7 +1917,7 @@ def plot_SigmaKx(saved_var, kept_modes, variables, params,
                         plt.clf()
                     if ("diff" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.r_diff_avg[istru, irf].T, cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.r_diff_avg[i_struct, irf].T, cmap='viridis')
                         plt.ylabel("Wavelength ({})".format(params.unit_lambda_plot))
                         plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                         plt.colorbar(CS)
@@ -1832,7 +1928,7 @@ def plot_SigmaKx(saved_var, kept_modes, variables, params,
                         plt.clf()
                     if ("scat" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.r_scat_avg[istru, irf].T, cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.r_scat_avg[i_struct, irf].T, cmap='viridis')
                         plt.ylabel("Wavelength ({})".format(params.unit_lambda_plot))
                         plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                         plt.colorbar(CS)
@@ -1844,7 +1940,7 @@ def plot_SigmaKx(saved_var, kept_modes, variables, params,
                 if ("tran" in kept_modes):
                     if ("spec" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.t_spec_avg[istru, irf].T, cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.t_spec_avg[i_struct, irf].T, cmap='viridis')
                         plt.ylabel("Wavelength ({})".format(params.unit_lambda_plot))
                         plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                         plt.colorbar(CS)
@@ -1855,7 +1951,7 @@ def plot_SigmaKx(saved_var, kept_modes, variables, params,
                         plt.clf()
                     if ("diff" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.t_diff_avg[istru, irf].T, cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.t_diff_avg[i_struct, irf].T, cmap='viridis')
                         plt.ylabel("Wavelength ({})".format(params.unit_lambda_plot))
                         plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                         plt.colorbar(CS)
@@ -1866,7 +1962,7 @@ def plot_SigmaKx(saved_var, kept_modes, variables, params,
                         plt.clf()
                     if ("scat" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.t_scat_avg[istru, irf].T, cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.t_scat_avg[i_struct, irf].T, cmap='viridis')
                         plt.ylabel("Wavelength ({})".format(params.unit_lambda_plot))
                         plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                         plt.colorbar(CS)
@@ -1877,7 +1973,7 @@ def plot_SigmaKx(saved_var, kept_modes, variables, params,
                         plt.clf()
                 if ("abs" in kept_modes):
                     plt.figure(figsize=(10,10))
-                    CS = plt.pcolormesh(X, Y, v.abs_avg[istru, irf].T, cmap='viridis')
+                    CS = plt.pcolormesh(X, Y, v.abs_avg[i_struct, irf].T, cmap='viridis')
                     plt.ylabel("Wavelength ({})".format(params.unit_lambda_plot))
                     plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                     plt.colorbar(CS)
@@ -1890,14 +1986,17 @@ def plot_SigmaKx(saved_var, kept_modes, variables, params,
             if not(averaging):
                 for irep in range(params.nb_reps):
                     filename = (file + "_per_" + str(per)
-                                + "_prof_" + str(prof) + "_width_" + str(width)
+                                + "_depth_" + str(depth) + "_width_" + str(width)
+                                + "_epsDiele_" + str(eps_2) + "_epsMetal_" + str(metal)
+                                + "_epsSubs_" + str(eps_sub) + "_hSubs_" + str(h_sub)
+                                + "_epsUpper_" + str(eps_1) + "_epsLower_" + str(eps_3)
                                 + "_rf_" + str(rf) + "_irep_" + str(irep)
                                 + "_modes_" + str(modes))
 
                     if ("refl" in kept_modes):
                         if ("spec" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.r_spec_reps[istru, irf, :, :, irep].T, cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.r_spec_reps[i_struct, irf, :, :, irep].T, cmap='viridis')
                             plt.ylabel("Wavelength ({})".format(params.unit_lambda_plot))
                             plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                             plt.colorbar(CS)
@@ -1908,7 +2007,7 @@ def plot_SigmaKx(saved_var, kept_modes, variables, params,
                             plt.clf()
                         if ("diff" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.r_diff_reps[istru, irf, :, :, irep].T, cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.r_diff_reps[i_struct, irf, :, :, irep].T, cmap='viridis')
                             plt.ylabel("Wavelength ({})".format(params.unit_lambda_plot))
                             plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                             plt.colorbar(CS)
@@ -1919,7 +2018,7 @@ def plot_SigmaKx(saved_var, kept_modes, variables, params,
                             plt.clf()
                         if ("scat" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.r_scat_reps[istru, irf, :, :, irep].T, cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.r_scat_reps[i_struct, irf, :, :, irep].T, cmap='viridis')
                             plt.ylabel("Wavelength ({})".format(params.unit_lambda_plot))
                             plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                             plt.colorbar(CS)
@@ -1931,7 +2030,7 @@ def plot_SigmaKx(saved_var, kept_modes, variables, params,
                     if ("tran" in kept_modes):
                         if ("spec" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.t_spec_reps[istru, irf, :, :, irep].T, cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.t_spec_reps[i_struct, irf, :, :, irep].T, cmap='viridis')
                             plt.ylabel("Wavelength ({})".format(params.unit_lambda_plot))
                             plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                             plt.colorbar(CS)
@@ -1942,7 +2041,7 @@ def plot_SigmaKx(saved_var, kept_modes, variables, params,
                             plt.clf()
                         if ("diff" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.t_diff_reps[istru, irf, :, :, irep].T, cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.t_diff_reps[i_struct, irf, :, :, irep].T, cmap='viridis')
                             plt.ylabel("Wavelength ({})".format(params.unit_lambda_plot))
                             plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                             plt.colorbar(CS)
@@ -1953,7 +2052,7 @@ def plot_SigmaKx(saved_var, kept_modes, variables, params,
                             plt.clf()
                         if ("scat" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.t_scat_reps[istru, irf, :, :, irep].T, cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.t_scat_reps[i_struct, irf, :, :, irep].T, cmap='viridis')
                             plt.ylabel("Wavelength ({})".format(params.unit_lambda_plot))
                             plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                             plt.colorbar(CS)
@@ -1964,7 +2063,7 @@ def plot_SigmaKx(saved_var, kept_modes, variables, params,
                             plt.clf()
                     if ("abs" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.abs_reps[istru, irf, :, :, irep].T, cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.abs_reps[i_struct, irf, :, :, irep].T, cmap='viridis')
                         plt.ylabel("Wavelength ({})".format(params.unit_lambda_plot))
                         plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                         plt.colorbar(CS)
@@ -1976,7 +2075,7 @@ def plot_SigmaKx(saved_var, kept_modes, variables, params,
 
 
 def plot_LambdaRF(saved_var, kept_modes, variables, params,
-              averaging, save, path, file, subplots=False):
+              averaging, save, path="", file="", subplots=False):
     """
         2D plot (plt.pcolor) Wavelength/Random Factor
         Here, only one outgoing field is plotted on each graph
@@ -1986,24 +2085,38 @@ def plot_LambdaRF(saved_var, kept_modes, variables, params,
 
     v = load_var(saved_var, kept_modes, averaging, err=False)
 
-    for istru in range(len(l_structure)):
+    for i_struct in range(len(l_structure)):
         for iangle in range(len(l_angle)):
 
-            per = np.round(l_structure[istru].period, 2)
-            prof = np.round(l_structure[istru].prof, 2)
-            width = np.round(l_structure[istru].interf, 2)
+            per = np.round(l_structure[i_struct].period, 2)
+            depth = np.round(l_structure[i_struct].depth, 2)
+            width = np.round(l_structure[i_struct].interf, 2)
             modes = params.nb_modes
             theta = np.round(l_angle[iangle].theta, 2)
             phi = np.round(l_angle[iangle].phi, 2)
             psi = np.round(l_angle[iangle].psi, 2)
             # Preparing the file name variables
+            h_sub = np.round(l_structure[i_struct].height_sub, 2)
+            eps_1 = np.round(l_structure[i_struct].eps_1, 2)
+            eps_2 = np.round(l_structure[i_struct].eps_2, 2)
+            eps_sub = np.round(l_structure[i_struct].eps_sub, 2)
+            eps_3 = np.round(l_structure[i_struct].eps_3, 2)
+            if isinstance(l_structure[i_struct].metal, float) or isinstance(l_structure[i_struct].metal, int):
+                metal = np.round(l_structure[i_struct].metal, 2)
+            elif isinstance(l_structure[i_struct].metal, str):
+                metal = l_structure[i_struct].metal
+            else:
+                metal = ""
 
             X, Y = np.meshgrid(l_lambdas, l_rf)
 
             if (averaging):
                 nb_reps = params.nb_reps
                 filename = (file + "_per_" + str(per)
-                            + "_prof_" + str(prof) + "_width_" + str(width)
+                            + "_depth_" + str(depth) + "_width_" + str(width)
+                            + "_epsDiele_" + str(eps_2) + "_epsMetal_" + str(metal)
+                            + "_epsSubs_" + str(eps_sub) + "_hSubs_" + str(h_sub)
+                            + "_epsUpper_" + str(eps_1) + "_epsLower_" + str(eps_3)
                             + "_theta_" + str(theta) + "_phi_" + str(phi)
                             + "_psi_" + str(psi) + "_nbreps_" + str(nb_reps)
                             + "_modes_" + str(modes))
@@ -2011,7 +2124,7 @@ def plot_LambdaRF(saved_var, kept_modes, variables, params,
                 if ("refl" in kept_modes):
                     if ("spec" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.r_spec_avg[istru, :, iangle, :], cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.r_spec_avg[i_struct, :, iangle, :], cmap='viridis')
                         plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                         plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                         plt.colorbar(CS)
@@ -2022,7 +2135,7 @@ def plot_LambdaRF(saved_var, kept_modes, variables, params,
                         plt.clf()
                     if ("diff" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.r_diff_avg[istru, :, iangle, :], cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.r_diff_avg[i_struct, :, iangle, :], cmap='viridis')
                         plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                         plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                         plt.colorbar(CS)
@@ -2033,7 +2146,7 @@ def plot_LambdaRF(saved_var, kept_modes, variables, params,
                         plt.clf()
                     if ("scat" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.r_scat_avg[istru, :, iangle, :], cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.r_scat_avg[i_struct, :, iangle, :], cmap='viridis')
                         plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                         plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                         plt.colorbar(CS)
@@ -2045,7 +2158,7 @@ def plot_LambdaRF(saved_var, kept_modes, variables, params,
                 if ("tran" in kept_modes):
                     if ("spec" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.t_spec_avg[istru, :, iangle, :], cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.t_spec_avg[i_struct, :, iangle, :], cmap='viridis')
                         plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                         plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                         plt.colorbar(CS)
@@ -2056,7 +2169,7 @@ def plot_LambdaRF(saved_var, kept_modes, variables, params,
                         plt.clf()
                     if ("diff" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.t_diff_avg[istru, :, iangle, :], cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.t_diff_avg[i_struct, :, iangle, :], cmap='viridis')
                         plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                         plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                         plt.colorbar(CS)
@@ -2067,7 +2180,7 @@ def plot_LambdaRF(saved_var, kept_modes, variables, params,
                         plt.clf()
                     if ("scat" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.t_scat_avg[istru, :, iangle, :], cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.t_scat_avg[i_struct, :, iangle, :], cmap='viridis')
                         plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                         plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                         plt.colorbar(CS)
@@ -2078,7 +2191,7 @@ def plot_LambdaRF(saved_var, kept_modes, variables, params,
                         plt.clf()
                 if ("abs" in kept_modes):
                     plt.figure(figsize=(10,10))
-                    CS = plt.pcolormesh(X, Y, v.abs_avg[istru, :, iangle, :], cmap='viridis')
+                    CS = plt.pcolormesh(X, Y, v.abs_avg[i_struct, :, iangle, :], cmap='viridis')
                     plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                     plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                     plt.colorbar(CS)
@@ -2091,7 +2204,10 @@ def plot_LambdaRF(saved_var, kept_modes, variables, params,
             if not(averaging):
                 for irep in range(params.nb_reps):
                     filename = (file + "_per_" + str(per)
-                                + "_prof_" + str(prof) + "_width_" + str(width)
+                                + "_depth_" + str(depth) + "_width_" + str(width)
+                                + "_epsDiele_" + str(eps_2) + "_epsMetal_" + str(metal)
+                                + "_epsSubs_" + str(eps_sub) + "_hSubs_" + str(h_sub)
+                                + "_epsUpper_" + str(eps_1) + "_epsLower_" + str(eps_3)
                                 + "_theta_" + str(theta) + "_phi_" + str(phi)
                                 + "_psi_" + str(psi)+ "_irep_" + str(irep)
                                 + "_modes_" + str(modes))
@@ -2099,7 +2215,7 @@ def plot_LambdaRF(saved_var, kept_modes, variables, params,
                     if ("refl" in kept_modes):
                         if ("spec" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.r_spec_reps[istru, :, iangle, :, irep], cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.r_spec_reps[i_struct, :, iangle, :, irep], cmap='viridis')
                             plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                             plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                             plt.colorbar(CS)
@@ -2110,7 +2226,7 @@ def plot_LambdaRF(saved_var, kept_modes, variables, params,
                             plt.clf()
                         if ("diff" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.r_diff_reps[istru, :, iangle, :, irep], cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.r_diff_reps[i_struct, :, iangle, :, irep], cmap='viridis')
                             plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                             plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                             plt.colorbar(CS)
@@ -2121,7 +2237,7 @@ def plot_LambdaRF(saved_var, kept_modes, variables, params,
                             plt.clf()
                         if ("scat" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.r_scat_reps[istru, :, iangle, :, irep], cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.r_scat_reps[i_struct, :, iangle, :, irep], cmap='viridis')
                             plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                             plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                             plt.colorbar(CS)
@@ -2133,7 +2249,7 @@ def plot_LambdaRF(saved_var, kept_modes, variables, params,
                     if ("tran" in kept_modes):
                         if ("spec" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.t_spec_reps[istru, :, iangle, :, irep], cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.t_spec_reps[i_struct, :, iangle, :, irep], cmap='viridis')
                             plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                             plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                             plt.colorbar(CS)
@@ -2144,7 +2260,7 @@ def plot_LambdaRF(saved_var, kept_modes, variables, params,
                             plt.clf()
                         if ("diff" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.t_diff_reps[istru, :, iangle, :, irep], cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.t_diff_reps[i_struct, :, iangle, :, irep], cmap='viridis')
                             plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                             plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                             plt.colorbar(CS)
@@ -2155,7 +2271,7 @@ def plot_LambdaRF(saved_var, kept_modes, variables, params,
                             plt.clf()
                         if ("scat" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.t_scat_reps[istru, :, iangle, :, irep], cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.t_scat_reps[i_struct, :, iangle, :, irep], cmap='viridis')
                             plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                             plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                             plt.legend()
@@ -2167,7 +2283,7 @@ def plot_LambdaRF(saved_var, kept_modes, variables, params,
                             plt.clf()
                     if ("abs" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.abs_reps[istru, :, iangle, :, irep], cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.abs_reps[i_struct, :, iangle, :, irep], cmap='viridis')
                         plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                         plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                         plt.colorbar(CS)
@@ -2178,7 +2294,7 @@ def plot_LambdaRF(saved_var, kept_modes, variables, params,
                         plt.clf()
 
 def plot_ThetaRF(saved_var, kept_modes, variables, params,
-              averaging, save, path, file, subplots=False):
+              averaging, save, path="", file="", subplots=False):
     """
         2D plot (plt.pcolor) Wavelength/Random Factor
         Here, only one outgoing field is plotted on each graph
@@ -2188,14 +2304,25 @@ def plot_ThetaRF(saved_var, kept_modes, variables, params,
 
     v = load_var(saved_var, kept_modes, averaging, err=False)
 
-    for istru in range(len(l_structure)):
+    for i_struct in range(len(l_structure)):
         for ilamb in range(len(l_lambdas)):
 
-            per = np.round(l_structure[istru].period, 2)
-            prof = np.round(l_structure[istru].prof, 2)
-            width = np.round(l_structure[istru].interf, 2)
+            per = np.round(l_structure[i_struct].period, 2)
+            depth = np.round(l_structure[i_struct].depth, 2)
+            width = np.round(l_structure[i_struct].interf, 2)
             modes = params.nb_modes
             lamb = np.round(l_lambdas[ilamb], 2)
+            h_sub = np.round(l_structure[i_struct].height_sub, 2)
+            eps_1 = np.round(l_structure[i_struct].eps_1, 2)
+            eps_2 = np.round(l_structure[i_struct].eps_2, 2)
+            eps_sub = np.round(l_structure[i_struct].eps_sub, 2)
+            eps_3 = np.round(l_structure[i_struct].eps_3, 2)
+            if isinstance(l_structure[i_struct].metal, float) or isinstance(l_structure[i_struct].metal, int):
+                metal = np.round(l_structure[i_struct].metal, 2)
+            elif isinstance(l_structure[i_struct].metal, str):
+                metal = l_structure[i_struct].metal
+            else:
+                metal = ""
             # Preparing the file name variables
 
             l_thetas = np.array([l_angle[i].theta for i in range(len(l_angle))])
@@ -2204,14 +2331,17 @@ def plot_ThetaRF(saved_var, kept_modes, variables, params,
             if (averaging):
                 nb_reps = params.nb_reps
                 filename = (file + "_per_" + str(per)
-                            + "_prof_" + str(prof) + "_width_" + str(width)
+                            + "_depth_" + str(depth) + "_width_" + str(width)
+                            + "_epsDiele_" + str(eps_2) + "_epsMetal_" + str(metal)
+                            + "_epsSubs_" + str(eps_sub) + "_hSubs_" + str(h_sub)
+                            + "_epsUpper_" + str(eps_1) + "_epsLower_" + str(eps_3)
                             + "_lambda_" + str(lamb) + "_nbreps_" + str(nb_reps)
                             + "_modes_" + str(modes))
 
                 if ("refl" in kept_modes):
                     if ("spec" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.r_spec_avg[istru, :, :, ilamb], cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.r_spec_avg[i_struct, :, :, ilamb], cmap='viridis')
                         plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                         plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                         plt.colorbar(CS)
@@ -2222,7 +2352,7 @@ def plot_ThetaRF(saved_var, kept_modes, variables, params,
                         plt.clf()
                     if ("diff" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.r_diff_avg[istru, :, :, ilamb], cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.r_diff_avg[i_struct, :, :, ilamb], cmap='viridis')
                         plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                         plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                         plt.colorbar(CS)
@@ -2233,7 +2363,7 @@ def plot_ThetaRF(saved_var, kept_modes, variables, params,
                         plt.clf()
                     if ("scat" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.r_scat_avg[istru, :, :, ilamb], cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.r_scat_avg[i_struct, :, :, ilamb], cmap='viridis')
                         plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                         plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                         plt.colorbar(CS)
@@ -2245,7 +2375,7 @@ def plot_ThetaRF(saved_var, kept_modes, variables, params,
                 if ("tran" in kept_modes):
                     if ("spec" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.t_spec_avg[istru, :, :, ilamb], cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.t_spec_avg[i_struct, :, :, ilamb], cmap='viridis')
                         plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                         plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                         plt.colorbar(CS)
@@ -2256,7 +2386,7 @@ def plot_ThetaRF(saved_var, kept_modes, variables, params,
                         plt.clf()
                     if ("diff" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.t_diff_avg[istru, :, :, ilamb], cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.t_diff_avg[i_struct, :, :, ilamb], cmap='viridis')
                         plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                         plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                         plt.colorbar(CS)
@@ -2267,7 +2397,7 @@ def plot_ThetaRF(saved_var, kept_modes, variables, params,
                         plt.clf()
                     if ("scat" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.t_scat_avg[istru, :, :, ilamb], cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.t_scat_avg[i_struct, :, :, ilamb], cmap='viridis')
                         plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                         plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                         plt.colorbar(CS)
@@ -2278,7 +2408,7 @@ def plot_ThetaRF(saved_var, kept_modes, variables, params,
                         plt.clf()
                 if ("abs" in kept_modes):
                     plt.figure(figsize=(10,10))
-                    CS = plt.pcolormesh(X, Y, v.abs_avg[istru, :, :, ilamb], cmap='viridis')
+                    CS = plt.pcolormesh(X, Y, v.abs_avg[i_struct, :, :, ilamb], cmap='viridis')
                     plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                     plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                     plt.colorbar(CS)
@@ -2291,14 +2421,17 @@ def plot_ThetaRF(saved_var, kept_modes, variables, params,
             if not(averaging):
                 for irep in range(params.nb_reps):
                     filename = (file + "_per_" + str(per)
-                                + "_prof_" + str(prof) + "_width_" + str(width)
+                                + "_depth_" + str(depth) + "_width_" + str(width)
+                                + "_epsDiele_" + str(eps_2) + "_epsMetal_" + str(metal)
+                                + "_epsSubs_" + str(eps_sub) + "_hSubs_" + str(h_sub)
+                                + "_epsUpper_" + str(eps_1) + "_epsLower_" + str(eps_3)
                                 + "_lambda_" + str(lamb) + "_irep_" + str(irep)
                                 + "_modes_" + str(modes))
 
                     if ("refl" in kept_modes):
                         if ("spec" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.r_spec_reps[istru, :, :, ilamb, irep], cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.r_spec_reps[i_struct, :, :, ilamb, irep], cmap='viridis')
                             plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                             plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                             plt.colorbar(CS)
@@ -2309,7 +2442,7 @@ def plot_ThetaRF(saved_var, kept_modes, variables, params,
                             plt.clf()
                         if ("diff" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.r_diff_reps[istru, :, :, ilamb, irep], cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.r_diff_reps[i_struct, :, :, ilamb, irep], cmap='viridis')
                             plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                             plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                             plt.colorbar(CS)
@@ -2320,7 +2453,7 @@ def plot_ThetaRF(saved_var, kept_modes, variables, params,
                             plt.clf()
                         if ("scat" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.r_scat_reps[istru, :, :, ilamb, irep], cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.r_scat_reps[i_struct, :, :, ilamb, irep], cmap='viridis')
                             plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                             plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                             plt.colorbar(CS)
@@ -2332,7 +2465,7 @@ def plot_ThetaRF(saved_var, kept_modes, variables, params,
                     if ("tran" in kept_modes):
                         if ("spec" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.t_spec_reps[istru, :, :, ilamb, irep], cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.t_spec_reps[i_struct, :, :, ilamb, irep], cmap='viridis')
                             plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                             plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                             plt.colorbar(CS)
@@ -2343,7 +2476,7 @@ def plot_ThetaRF(saved_var, kept_modes, variables, params,
                             plt.clf()
                         if ("diff" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.t_diff_reps[istru, :, :, ilamb, irep], cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.t_diff_reps[i_struct, :, :, ilamb, irep], cmap='viridis')
                             plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                             plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                             plt.colorbar(CS)
@@ -2354,7 +2487,7 @@ def plot_ThetaRF(saved_var, kept_modes, variables, params,
                             plt.clf()
                         if ("scat" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.t_scat_reps[istru, :, :, ilamb, irep], cmap='viridis')
+                            CS = plt.pcolormesh(X, Y, v.t_scat_reps[i_struct, :, :, ilamb, irep], cmap='viridis')
                             plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                             plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                             plt.legend()
@@ -2366,7 +2499,7 @@ def plot_ThetaRF(saved_var, kept_modes, variables, params,
                             plt.clf()
                     if ("abs" in kept_modes):
                         plt.figure(figsize=(10,10))
-                        CS = plt.pcolormesh(X, Y, v.abs_reps[istru, :, :, ilamb, irep], cmap='viridis')
+                        CS = plt.pcolormesh(X, Y, v.abs_reps[i_struct, :, :, ilamb, irep], cmap='viridis')
                         plt.xlabel("Incidence Angle ({})".format(params.unit_angle_plot))
                         plt.ylabel("Random Factor({})".format(params.unit_rf_plot))
                         plt.colorbar(CS)
@@ -2379,7 +2512,7 @@ def plot_ThetaRF(saved_var, kept_modes, variables, params,
 
 
 def plot_LambdaStruct(saved_var, kept_modes, variables, params,
-              averaging, save, path, file, subplots=False):
+              averaging, save, path="", file="", subplots=False):
     """
         2D plot (plt.pcolor) Wavelength/Random Factor
         Here, only one outgoing field is plotted on each graph
@@ -2578,7 +2711,7 @@ def plot_LambdaStruct(saved_var, kept_modes, variables, params,
 
 
 def plot_ThetaStruct(saved_var, kept_modes, variables, params,
-              averaging, save, path, file, subplots=False):
+              averaging, save, path="", file="", subplots=False):
     """
         2D plot (plt.pcolor) Wavelength/Random Factor
         Here, only one outgoing field is plotted on each graph
@@ -2687,7 +2820,7 @@ def plot_ThetaStruct(saved_var, kept_modes, variables, params,
 
             if not(averaging):
                 for irep in range(params.nb_reps):
-                    filename = (file + "Lambda_Struct_Plot_" + "rf_" + str(rf)
+                    filename = (file + "Theta_Struct_Plot_" + "rf_" + str(rf)
                                 + "_lambda_" + str(lamb) + "_irep_" + str(irep)
                                 + "_modes_" + str(modes))
 
@@ -2829,16 +2962,16 @@ def plot_Scat(saved_var, kept_modes, variables, params, variance,
 
     v = load_scat(saved_var, kept_modes, averaging, err=False)
 
-    for istru in range(len(l_structure)):
+    for i_struct in range(len(l_structure)):
         for i_rf in range(len(l_rf)):
             for i_angle in range(len(l_angle)):
                 for i_lam in range(len(l_lambdas)):
                     # Make one plot for each of these possibilities
                     # (and also for each repetition, if no averaging)
 
-                    per = np.round(l_structure[istru].period, 2)
-                    prof = np.round(l_structure[istru].prof, 2)
-                    width = np.round(l_structure[istru].interf, 2)
+                    per = np.round(l_structure[i_struct].period, 2)
+                    depth = np.round(l_structure[i_struct].depth, 2)
+                    width = np.round(l_structure[i_struct].interf, 2)
                     modes = params.nb_modes
                     theta = np.round(l_angle[i_angle].theta, 2)
                     phi = np.round(l_angle[i_angle].phi, 2)
@@ -2846,16 +2979,33 @@ def plot_Scat(saved_var, kept_modes, variables, params, variance,
                     rf = np.round(l_rf[i_rf], 2)
                     lamb = np.round(l_lambdas[i_lam], 2)
                     var = np.round(variance, 2)
+                    h_sub = np.round(l_structure[i_struct].height_sub, 2)
+                    eps_1 = np.round(l_structure[i_struct].eps_1, 2)
+                    eps_2 = np.round(l_structure[i_struct].eps_2, 2)
+                    eps_sub = np.round(l_structure[i_struct].eps_sub, 2)
+                    eps_3 = np.round(l_structure[i_struct].eps_3, 2)
+                    if isinstance(l_structure[i_struct].metal, float) or isinstance(l_structure[i_struct].metal, int):
+                        metal = np.round(l_structure[i_struct].metal, 2)
+                    elif isinstance(l_structure[i_struct].metal, str):
+                        metal = l_structure[i_struct].metal
+                    else:
+                        metal = ""
                     # Preparing the file name variables
                     if (averaging):
                         nb_reps = params.nb_reps
                         file_root = (file + "_per_" + str(per)
-                                    + "_prof_" + str(prof) + "_width_" + str(width)
+                                    + "_depth_" + str(depth) + "_width_" + str(width)
+                                    + "_epsDiele_" + str(eps_2) + "_epsMetal_" + str(metal)
+                                    + "_epsSubs_" + str(eps_sub) + "_hSubs_" + str(h_sub)
+                                    + "_epsUpper_" + str(eps_1) + "_epsLower_" + str(eps_3)
                                     + "_RF_" + str(rf) + "_VAR_" + str(var) + "_theta_" + str(theta)
                                     + "_phi_" + str(phi) + "_psi_" + str(psi) + "_lamb_" + str(lamb)
                                     + "_nb_reps_" + str(nb_reps) + "_modes_" + str(modes))
                         filename = (path + "/" + file + "_per_" + str(per)
-                                    + "_prof_" + str(prof) + "_width_" + str(width)
+                                    + "_depth_" + str(depth) + "_width_" + str(width)
+                                    + "_epsDiele_" + str(eps_2) + "_epsMetal_" + str(metal)
+                                    + "_epsSubs_" + str(eps_sub) + "_hSubs_" + str(h_sub)
+                                    + "_epsUpper_" + str(eps_1) + "_epsLower_" + str(eps_3)
                                     + "_RF_" + str(rf) + "_VAR_" + str(var) + "_theta_" + str(theta)
                                     + "_phi_" + str(phi) + "_psi_" + str(psi) + "_lamb_" + str(lamb)
                                     + "_nb_reps_" + str(nb_reps) + "_modes_" + str(modes))
@@ -2863,23 +3013,23 @@ def plot_Scat(saved_var, kept_modes, variables, params, variance,
                         plt.figure(figsize=(10,10))
 
                         if ("refl" in kept_modes):
-                            refl_modes = v.r_out_angl[istru, i_rf, i_angle, i_lam]
+                            refl_modes = v.r_out_angl[i_struct, i_rf, i_angle, i_lam]
                             k0 = 2*np.pi / l_lambdas[i_lam]
                             kx0 = k0 * np.sin(l_angle[i_angle].theta*np.pi/180)
-                            kx_per = 2*np.pi/(l_structure[istru].period*params.super_period)
+                            kx_per = 2*np.pi/(l_structure[i_struct].period*params.super_period)
                             refl_k = kx0 + refl_modes*kx_per
                             r_angl_out = np.arcsin(refl_k / (2*np.pi / l_lambdas[i_lam]))*180/np.pi
 #                            print(refl_modes, kx0, kx_per, r_angl_out)
-                            plt.plot(r_angl_out, v.r_out_avg[istru, i_rf, i_angle, i_lam], 'b', label="out. Reflection")
+                            plt.plot(r_angl_out, v.r_out_avg[i_struct, i_rf, i_angle, i_lam], 'b', label="out. Reflection")
 
                         if ("tran" in kept_modes):
-                            tran_modes = v.t_out_angl[istru, i_rf, i_angle, i_lam]
+                            tran_modes = v.t_out_angl[i_struct, i_rf, i_angle, i_lam]
                             k0 = 2*np.pi / lamb
                             kx0 = k0 * np.sin(l_angle[i_angle].theta)
-                            kx_per = 2*np.pi/(l_structure[istru].period*params.super_period)
+                            kx_per = 2*np.pi/(l_structure[i_struct].period*params.super_period)
                             tran_k = kx0 + tran_modes*kx_per
                             t_angl_out = np.arcsin(tran_k / 2*np.pi / lamb)*180/np.pi
-                            plt.plot(t_angl_out, v.t_out_avg[istru, i_rf, i_angle, i_lam], 'b--', label="out. Transmission")
+                            plt.plot(t_angl_out, v.t_out_avg[i_struct, i_rf, i_angle, i_lam], 'b--', label="out. Transmission")
 
                         plt.ylim([1e-6,1.])
                         plt.ylabel("Efficiencies")
@@ -2912,30 +3062,33 @@ def plot_Scat(saved_var, kept_modes, variables, params, variance,
                         for irep in range(params.nb_reps):
 
                             filename = (path + "/" + file + "_per_" + str(per)
-                                        + "_prof_" + str(prof) + "_width_" + str(width)
+                                        + "_depth_" + str(depth) + "_width_" + str(width)
+                                        + "_epsDiele_" + str(eps_2) + "_epsMetal_" + str(metal)
+                                        + "_epsSubs_" + str(eps_sub) + "_hSubs_" + str(h_sub)
+                                        + "_epsUpper_" + str(eps_1) + "_epsLower_" + str(eps_3)
                                         + "_RF_" + str(rf) + "_VAR_" + str(var) + "_theta_" + str(theta)
                                         + "_phi_" + str(phi) + "_psi_" + str(psi)
                                         + "_irep_" + str(irep) + "_modes_" + str(modes))
 
                             plt.figure(figsize=(10,10))
                             if ("refl" in kept_modes):
-                                refl_modes = v.r_out_angl[istru, i_rf, i_angle, i_lam]
+                                refl_modes = v.r_out_angl[i_struct, i_rf, i_angle, i_lam]
                                 k0 = 2*np.pi / l_lambdas[i_lam]
                                 kx0 = k0 * np.sin(l_angle[i_angle].theta)
-                                kx_per = 2*np.pi/(l_structure[istru].period*params.super_period)
+                                kx_per = 2*np.pi/(l_structure[i_struct].period*params.super_period)
                                 refl_k = kx0 + refl_modes*kx_per
                                 r_angl_out = np.arcsin(refl_k / (2*np.pi / l_lambdas[i_lam]))*180/np.pi
     #                            print(refl_modes, kx0, kx_per, r_angl_out)
-                                plt.plot(r_angl_out, v.r_out_reps[istru, i_rf, i_angle, i_lam, irep], 'b', label="out. Reflection")
+                                plt.plot(r_angl_out, v.r_out_reps[i_struct, i_rf, i_angle, i_lam, irep], 'b', label="out. Reflection")
 
                             if ("tran" in kept_modes):
-                                tran_modes = v.t_out_angl[istru, i_rf, i_angle, i_lam]
+                                tran_modes = v.t_out_angl[i_struct, i_rf, i_angle, i_lam]
                                 k0 = 2*np.pi / lamb
                                 kx0 = k0 * np.sin(l_angle[i_angle].theta)
-                                kx_per = 2*np.pi/(l_structure[istru].period*params.super_period)
+                                kx_per = 2*np.pi/(l_structure[i_struct].period*params.super_period)
                                 tran_k = kx0 + tran_modes*kx_per
                                 t_angl_out = np.arcsin(tran_k / 2*np.pi / lamb)*180/np.pi
-                                plt.plot(t_angl_out, v.t_out_reps[istru, i_rf, i_angle, i_lam, irep], 'b--', label="out. Transmission")
+                                plt.plot(t_angl_out, v.t_out_reps[i_struct, i_rf, i_angle, i_lam, irep], 'b--', label="out. Transmission")
 
 
                             plt.ylim([1e-6,1.])
