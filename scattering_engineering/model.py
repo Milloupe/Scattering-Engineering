@@ -107,7 +107,7 @@ def init_Rayleigh(p):
         p.prop_ord_sub = [[]]
         for isub in range(1, len(p.h_sub)):
             p.prop_ord_sub.append([])
-    
+
     for n in range(-p.nb_modes, p.nb_modes+1):
         kx = p.kx0 + 2 * n * np.pi / p.L # No influence of the index (Lalanne omm 2000)
         kz1 = np.sqrt(p.eps_1 * p.k0**2 - kx**2 + 0j)
@@ -138,6 +138,7 @@ def comp_help_variables(p):
         p.eps_eta_eps3 = [p.eps_3 / (p.eta_3 * p.eps_struct[l]) for l in range(p.nb_slits_tot)]
     else:
         p.eps_eta_epssub = [p.eps_sub[0] / (p.eta_sub * p.eps_struct[l]) for l in range(p.nb_slits_tot)]
+
 
 def init_variables(p):
     """
@@ -199,7 +200,7 @@ def init_variables(p):
         p.Beta_psub = np.array([calc_Beta_p(n, "sub", p) for n in n_modes])
 
         p.C_sub, p.P_sub = calc_sub_var(n_modes, p)
-        # Not parallel for the moment because we need to compute both
+        # Not independent because we need to compute both
         # type of variables simultaneously
 
 
@@ -295,7 +296,7 @@ def calc_K(l, p):
 def calc_J(n, zone, p):
     """
         >> Computes the dielectric slab integral Jp(n).
-        >> Requires L and kJ(n) to be defined in profil
+        >> Requires L and kx(n) to be defined in profil
     """
     if (zone == 4):
         if (p.kx[n] == 0):

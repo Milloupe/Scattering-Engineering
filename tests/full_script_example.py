@@ -80,7 +80,7 @@ l_angle.append(angle)
 ### Defining the wavelengths
 l_lambdas = np.arange(4, 17, 0.01)*1e-6
 #l_lambdas = np.array([4.65])*1e-6
-# lambdas will probably always be a simple np.array, no list needed
+# lambdas will always be a simple np.array, no list needed
 
 
 ### Defining the random factors
@@ -144,7 +144,7 @@ filename = "Desordre_Correl_full_graph_multi"
 def compute(variables, params, var=0, type_disorder=type_disorder):
 
     res, SI_variables = modele.analytic_model(variables, params, variance=var,
-                                              type_disorder=type_disorder, progress=False)
+                                              type_disorder=type_disorder, progress=True)
     ordx, resx, tr_ordx, tr_resx = res
     # Saving the figures to path/filename_[structure geometry].svg
     modele.post_processing_analytical(res, type_plot, kept_modes,

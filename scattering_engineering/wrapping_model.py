@@ -25,29 +25,31 @@ from . import disorder as dis
 def analytic_model(variables, params, return_last_profil=False,
                    type_disorder="None", variance=0, compute_phase=False, progress=True):
     """
-        Wrapper function
-        variables contains the following information:
+        Wrapper function calling the functions that will compute the optical response
+
+        variables must contain the following information:
         > l_structure contains geometrical and material information
         > l_angle contains the angular incidence information
         > l_lambdas contains the wavelength at which we want to compute
         > l_rf contains the random factors at which we want to compute
         > l_params contains other numerical parameters
             (nb of repetitions, nb of modes and super_period)
-        > type_disorder is the type of disorder wanted. Possibilities:
-            - "None" -> not disordered
-            - "Jitter" -> jitter based disorder, rf = width of the jitter
-                          needs struct_disorder to be defined in l_params
-            - "Gaussian" -> gaussian distribution of the structure positions
-                            rf = standard deviation
-            - "Geom" -> geometry disorder, applying jitter to only one interface
-                        of each structure. rf = width of the jitter
-                        needs struct_disorder to be defined in l_params
-            - "LDSeq" -> Low Discrepancy Sequence, deterministic positions
-                         depending on a base and increment. rf = base,
-                         The increment used is the one giving the lowest discrepancy:
-                             (sqrt(5)-1) / 2
-            - "RSA" -> Random Sequential Adsorption, or taking the positions
-                       completely at random but still avoid overlaps
+
+        type_disorder is the type of disorder wanted. Possibilities:
+        - "None" -> not disordered
+        - "Jitter" -> jitter based disorder, rf = width of the jitter
+                      needs struct_disorder to be defined in l_params
+        - "Gaussian" -> gaussian distribution of the structure positions
+                        rf = standard deviation
+        - "Geom" -> geometry disorder, applying jitter to only one interface
+                    of each structure. rf = width of the jitter
+                    needs struct_disorder to be defined in l_params
+        - "LDSeq" -> Low Discrepancy Sequence, deterministic positions
+                     depending on a base and increment. rf = base,
+                     The increment used is the one giving the lowest discrepancy:
+                         (sqrt(5)-1) / 2
+        - "RSA" -> Random Sequential Adsorption, or taking the positions
+                   completely at random but still avoid overlaps
     """
     ordx = dict()
     resx = dict()
@@ -178,6 +180,7 @@ def post_processing_analytical(res, type_plot, kept_modes,
                                path="", file=""):
     """
         Post-processing the results and plotting
+
         > res is simply the result given by analytical_model(...)
         > type_plot tells the function which variables are going
             be used for the plot
@@ -189,7 +192,7 @@ def post_processing_analytical(res, type_plot, kept_modes,
             - 2D plots:
                 a) Wavelength/Incidence angle --- 2DLambdaTheta
                 b) Wavelength/Random factor --- 2DLambdaRF
-                c) Wavelength/Out Angle --- 2DLambdaThetaOut (NOT YET IMPLEMENTED)
+                c) Wavelength/Out Angle --- 2DLambdaThetaOut (WIP...)
                 d) Wavelength/Structure --- 2DLambdaStruct
                 e) Incidence Angle/Structure --- 2DThetaStruct
             - subplots, for all previous possibilities, if there are other
@@ -212,7 +215,7 @@ def post_processing_analytical(res, type_plot, kept_modes,
 
     if(type_plot[:2]=="1D" and type_plot[2:]!="ThetaOut"):
         saved_var = mode_selection(res, kept_modes, plot_variables, params, averaging)
-    elif(type_plot[:2]=="2D"):
+    elif(type_plot[:2]=="2D" and type_plot[-8:]!="ThetaOut"):
         saved_var = mode_selection(res, kept_modes, plot_variables, params, averaging, err=False)
 
         """
@@ -230,7 +233,7 @@ def post_processing_analytical(res, type_plot, kept_modes,
                - *_min (min values)
                - *_max (max values)
         """
-    elif(type_plot=="1DThetaOut"):
+    elif(type_plot=="1DThetaOut" or type_plot=="2DLambdaThetaOut"):
         # Used for scattering plots
         saved_var = scat_selection(res, kept_modes, plot_variables, params, averaging)
     else:
@@ -273,6 +276,9 @@ def post_processing_analytical(res, type_plot, kept_modes,
     elif (type_plot == "2DThetaStruct"):
         plot_ThetaStruct(saved_var, kept_modes, plot_variables, params,
                       averaging, save, path, file, subplots=False)
+    elif (type_plot == "2DLambdaThetaOut"):
+        plot_LambdaOut(saved_var, kept_modes, plot_variables, params,
+                      averaging, save, path, file, subplots=False)
     # I'll implement automatic subplots if I have the time
     # But for the moment I'll just save everything as svg and
     # make composite plots via Inkscape
@@ -286,7 +292,7 @@ def post_processing_analytical(res, type_plot, kept_modes,
    #     plot_RF(saved_var, kept_modes, plot_variables, params,
    #                   averaging, save, path, file, subplots=True)
     else:
-#        print("Whatever type of plot you asked for (), it's not implemented yet".format(type_plot))
+        print(f"Whatever type of plot you asked for {type_plot}, it's not implemented yet")
         print("Defaulting to lambda plot")
         plot_Lambda(saved_var, kept_modes, plot_variables, params,
                       averaging, save, path, file, subplots=False)
@@ -294,8 +300,7 @@ def post_processing_analytical(res, type_plot, kept_modes,
 
 def conversion_to_SI(variables, params):
     """
-        Converting variables to more readable formats, using instructions in
-        params
+        Converting variables to more readable formats, using instructions in params
     """
 
     l_structure, l_angle, l_lambdas, l_rf = variables
@@ -385,8 +390,7 @@ def conversion_to_SI(variables, params):
 
 def conversion_to_plot(SI_variables, params):
     """
-        Converting variables to more readable formats, using instructions in
-        params
+        Converting variables to more readable formats, using instructions in params
     """
 
     l_structure, l_angle, l_lambdas, l_rf = SI_variables
@@ -460,7 +464,7 @@ def conversion_to_plot(SI_variables, params):
             if 0 not in l_lambdas:
                 conv_l_lambdas = 299792458/l_lambdas
         else:
-            print("Conversion only implemented for um, cm-1 and Hz for the moment.")
+            print("Wavelength conversion only implemented for um, cm-1 and Hz for the moment.")
 
     # And now RF (separately from Lambda because sometimes Lambda is given as a
     #             frequency or as a wave number)
@@ -487,6 +491,7 @@ def conversion_to_plot(SI_variables, params):
 def mode_selection(res, kept_modes, variables, params, averaging=True, err=True):
     """
         Computes the modes wanted for plotting, indicated by kept_modes.
+
         - averaging tells the function if it should average on repetitions
         -> This is a pretty ugly but quite straightforward function,
            it just has to do very similar things for all cases of kept_modes
@@ -883,6 +888,7 @@ def mode_selection(res, kept_modes, variables, params, averaging=True, err=True)
 def scat_selection(res, kept_modes, variables, params, averaging=True, err=False):
     """
         Computes the modes wanted for Angle Out plotting, indicated by kept_modes.
+
         - averaging tells the function if it should average on repetitions
         -> This is a pretty ugly but quite straightforward function,
            it just has to do very similar things for all cases of kept_modes
@@ -1044,6 +1050,7 @@ def scat_selection(res, kept_modes, variables, params, averaging=True, err=False
 def load_var(saved_var, kept_modes, averaging, err=True):
     """
         Load the necessary variables for plotting
+
         - err tells the function whether or not to load the error bars
     """
 
@@ -3116,6 +3123,136 @@ def plot_Scat(saved_var, kept_modes, variables, params, variance,
                             print(filename)
                             plt.show()
                             plt.clf()
+
+def plot_LambdaOut(saved_var, kept_modes, variables, params,
+              averaging, save, path="", file="", subplots=False, contours=0):
+    """
+        2D plot (plt.pcolor) Wavelength/Incidence Angle
+        Here, only one outgoing field is plotted on each graph
+    """
+
+    l_structure, l_angle, l_lambdas, l_rf = variables
+
+    v = load_scat(saved_var, kept_modes, averaging, err=False)
+
+    for i_struct in range(len(l_structure)):
+        for i_rf in range(len(l_rf)):
+            for i_angle in range(len(l_angle)):
+
+                if ("refl" in kept_modes):
+                    refl_modes = v.r_out_angl[i_struct, i_rf, i_angle]
+                    k0 = 2*np.pi / l_lambdas[i_lam]
+                    kx0 = k0 * np.sin(l_angle[i_angle].theta*np.pi/180)
+                    kx_per = 2*np.pi/(l_structure[i_struct].period*params.super_period)
+                    refl_k = kx0 + refl_modes*kx_per
+                    r_angl_out = np.arcsin(refl_k / (2*np.pi / l_lambdas[i_lam]))*180/np.pi
+
+                if ("tran" in kept_modes):
+                    tran_modes = v.t_out_angl[i_struct, i_rf, i_angle]
+                    k0 = 2*np.pi / lamb
+                    kx0 = k0 * np.sin(l_angle[i_angle].theta)
+                    kx_per = 2*np.pi/(l_structure[i_struct].period*params.super_period)
+                    tran_k = kx0 + tran_modes*kx_per
+                    t_angl_out = np.arcsin(tran_k / 2*np.pi / lamb)*180/np.pi
+
+                per = np.round(l_structure[i_struct].period, 2)
+                depth = np.round(l_structure[i_struct].depth, 2)
+                width = np.round(l_structure[i_struct].interf, 2)
+                modes = params.nb_modes
+                rf = np.round(l_rf[irf], 2)
+                h_sub = np.round(l_structure[i_struct].height_sub, 2)
+                eps_1 = np.round(l_structure[i_struct].eps_1, 2)
+                eps_2 = np.round(l_structure[i_struct].eps_2, 2)
+                eps_sub = np.round(l_structure[i_struct].eps_sub, 2)
+                eps_3 = np.round(l_structure[i_struct].eps_3, 2)
+                if isinstance(l_structure[i_struct].metal, float) or isinstance(l_structure[i_struct].metal, int):
+                    metal = np.round(l_structure[i_struct].metal, 2)
+                elif isinstance(l_structure[i_struct].metal, str):
+                    metal = l_structure[i_struct].metal
+                else:
+                    metal = ""
+                # Preparing the file name variables
+
+                X, rY = np.meshgrid(l_lambdas, r_angl_out)
+                X, tY = np.meshgrid(l_lambdas, t_angl_out)
+
+                if (averaging):
+                    nb_reps = params.nb_reps
+                    filename = (file + "_per_" + str(per)
+                                + "_depth_" + str(depth) + "_width_" + str(width)
+                                + "_epsDiele_" + str(eps_2) + "_epsMetal_" + str(metal)
+                                + "_epsSubs_" + str(eps_sub) + "_hSubs_" + str(h_sub)
+                                + "_epsUpper_" + str(eps_1) + "_epsLower_" + str(eps_3)
+                                + "_rf_" + str(rf) + "_nbreps_" + str(nb_reps)
+                                + "_modes_" + str(modes))
+
+                    if ("refl" in kept_modes):
+                        plt.figure(figsize=(10,10))
+                        CS = plt.pcolormesh(X, rY, v.r_spec_avg[i_struct, irf, i_angle], cmap='viridis')
+                        if (contours):
+                            plt.contour(X, rY, v.r_spec_avg[i_struct, irf, i_angle], contours, colors="k")
+                        plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
+                        plt.ylabel("Outgoing Angle({})".format(params.unit_angle_plot))
+                        plt.colorbar(CS)
+                        if (save):
+                            plt.savefig(path + "/Spec_Refl_" + filename + ".svg")
+                        print(filename)
+                        plt.show()
+                        plt.clf()
+                    if ("tran" in kept_modes):
+                        plt.figure(figsize=(10,10))
+                        CS = plt.pcolormesh(X, tY, v.t_spec_avg[i_struct, irf, i_angle], cmap='viridis')
+                        if (contours):
+                            plt.contour(X, tY, v.t_spec_avg[i_struct, irf, i_angle], contours, colors="k")
+
+
+                        plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
+                        plt.ylabel("Outgoing Angle({})".format(params.unit_angle_plot))
+                        plt.colorbar(CS)
+                        if (save):
+                            plt.savefig(path + "/Spec_Trans_" + filename + ".svg")
+                        print(filename)
+                        plt.show()
+                        plt.clf()
+
+                if not(averaging):
+                    for irep in range(params.nb_reps):
+                        filename = (file + "_per_" + str(per)
+                                    + "_depth_" + str(depth) + "_width_" + str(width)
+                                    + "_epsDiele_" + str(eps_2) + "_epsMetal_" + str(metal)
+                                    + "_epsSubs_" + str(eps_sub) + "_hSubs_" + str(h_sub)
+                                    + "_epsUpper_" + str(eps_1) + "_epsLower_" + str(eps_3)
+                                    + "_rf_" + str(rf) + "_irep_" + str(irep)
+                                    + "_modes_" + str(modes))
+
+                        if ("refl" in kept_modes):
+                            plt.figure(figsize=(10,10))
+                            CS = plt.pcolormesh(X, rY, v.r_spec_reps[i_struct, irf, i_angle, :, irep], cmap='viridis')
+                            if (contours):
+                                plt.contour(X, rY, v.r_spec_reps[i_struct, irf, i_angle, :, irep], contours, colors="k")
+                            plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
+                            plt.ylabel("Outgoing Angle({})".format(params.unit_angle_plot))
+                            plt.colorbar(CS)
+                            if (save):
+                                plt.savefig(path + "/Spec_Refl_" + filename + ".svg")
+                            print(filename)
+                            plt.show()
+                            plt.clf()
+                        if ("tran" in kept_modes):
+                            plt.figure(figsize=(10,10))
+                            CS = plt.pcolormesh(X, tY, v.t_spec_reps[i_struct, irf, i_angle, :, irep], cmap='viridis')
+                            if (contours):
+                                plt.contour(X, tY, v.t_spec_reps[i_struct, irf, i_angle, :, irep], contours, colors="k")
+
+                            plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
+                            plt.ylabel("Outgoing Angle({})".format(params.unit_angle_plot))
+                            plt.colorbar(CS)
+                            if (save):
+                                plt.savefig(path + "/Spec_Trans_" + filename + ".svg")
+                            print(filename)
+                            plt.show()
+                            plt.clf()
+
 
 
 def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '█', printEnd = "\r"):
