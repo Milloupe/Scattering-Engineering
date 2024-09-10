@@ -1639,6 +1639,7 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
                         CS = plt.pcolormesh(X, Y, v.r_spec_avg[i_struct, irf], cmap='viridis')
                         if (contours):
                             plt.contour(X, Y, v.r_spec_avg[i_struct, irf], contours, colors="k")
+                            plt.clabel(CS, inline=1, fontsize=10, levels=[0.1,0.8])
                         plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                         plt.ylabel("Incidence Angle({})".format(params.unit_angle_plot))
                         plt.colorbar(CS)
@@ -1678,8 +1679,8 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
                         plt.figure(figsize=(10,10))
                         CS = plt.pcolormesh(X, Y, v.t_spec_avg[i_struct, irf], cmap='viridis')
                         if (contours):
-                            plt.contour(X, Y, v.t_spec_avg[i_struct, irf], contours, colors="k")
-
+                            CSc = plt.contour(X, Y, v.t_spec_avg[i_struct, irf], contours, colors="k")
+                            plt.clabel(CSc, inline=1, fontsize=10, color="w")
                         if (params.unit_lambda_plot=='Hz'):
                             ax1 = plt.gca()
                             ax2 = ax1.twiny()
@@ -1795,9 +1796,10 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
                     if ("tran" in kept_modes):
                         if ("spec" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.pcolormesh(X, Y, v.t_spec_reps[i_struct, irf, :, :, irep], cmap='viridis')
+                            CS = plt.contourf(X, Y, v.t_spec_reps[i_struct, irf, :, :, irep],levels=[0.01*i for i in range(90)], cmap='viridis')
                             if (contours):
-                                plt.contour(X, Y, v.t_spec_reps[i_struct, irf, :, :, irep], contours, colors="k")
+                                CSc = plt.contour(X, Y, v.t_spec_reps[i_struct, irf, :, :, irep], contours, colors="k")
+                                plt.clabel(CSc, [0.1,0.8], inline=1, fontsize=20, colors=["w", "k"])
 
                             if (params.unit_lambda_plot=='Hz'):
                                 ax1 = plt.gca()
@@ -1815,7 +1817,7 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
                             else:
                                 plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                             plt.ylabel("Incidence Angle({})".format(params.unit_angle_plot))
-                            plt.colorbar(CS)
+                            plt.colorbar(CS, ticks=[0.1*i for i in range(9)])
                             if (save):
                                 plt.savefig(path + "/Spec_Trans_" + filename + ".svg")
                             print(filename)

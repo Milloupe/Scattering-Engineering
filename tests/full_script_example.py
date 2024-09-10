@@ -11,7 +11,7 @@ from context import bunch
 import numpy as np
 import matplotlib
 
-font = {'family' : 'DejaVu',
+font = {'family' : 'Sans',
         'weight' : 'normal',
         'size'   : 20}
 
@@ -23,10 +23,14 @@ structure = bunch.Bunch()
 # The interfaces (note: the given period is supposed to begin with metal
 #                       and then alternate between dielectric and metal)
 #                (It is also not supposed that there is an interface at x=0 or y=0)
-structure.interf = [0.5e-6, 0.75e-6]
-structure.depth = [3.e-6]
-structure.period = 6e-6
-structure.height_metal = structure.depth[0]+1e-6
+
+# Ana_interf_full = [0.20e-6, 1.0e-06, 1.70e-06, 2.50e-06, 3.20e-06, 3.8e-06]
+# Ana_prof_full = [3.6e-06, 2.1e-06, 1.3e-06]
+# Ana_Lx = 4e-6
+structure.interf = [0.20e-6, 1.0e-06, 3.20e-06, 3.8e-06]
+structure.depth = [3.6e-06, 1.3e-06]
+structure.period = 4e-6
+structure.height_metal = structure.depth[0]#+1e-6
 structure.height_sub = list()
 
 # The materials
@@ -67,18 +71,18 @@ angle.phi = 0.01*np.pi/180
 angle.psi = 0.01*np.pi/180
 # The angle of rotation of the fields around the incident vector. 0 is TM
 l_angle.append(angle)
-# nb_angle = 1
-# max_angle = 60
+# nb_angle = 90
+# max_angle = 89
 # for i_angle in range(nb_angle):
-    # angle = bunch.Bunch()
-    # angle.theta = (0.01 + i_angle*max_angle/(nb_angle-1)) * np.pi/180
-    # angle.phi = 0.0*np.pi/180
-    # angle.psi = 0.0*np.pi/180
-    # l_angle.append(angle)
+#     angle = bunch.Bunch()
+#     angle.theta = (0.01 + i_angle*max_angle/(nb_angle-1)) * np.pi/180
+#     angle.phi = 0.0*np.pi/180
+#     angle.psi = 0.0*np.pi/180
+#     l_angle.append(angle)
 
 
 ### Defining the wavelengths
-l_lambdas = np.arange(4, 17, 0.01)*1e-6
+l_lambdas = np.arange(6, 13, 0.01)*1e-6
 #l_lambdas = np.array([4.65])*1e-6
 # lambdas will always be a simple np.array, no list needed
 
@@ -98,7 +102,7 @@ params.super_period = 1
 # Larger than 1 is useful only if the structure is disordered
 params.nb_modes = 20 * params.super_period
 # Up to what number we compute the Rayleigh modes in R = sum[k=-N, N](R_k)
-params.nb_reps = 5
+params.nb_reps = 1
 # Number of times (with different random draws) the structure's properties
 # are computed. Is forced to 1 in rand_factor = 0
 params.struct_disorder = "all"
@@ -132,14 +136,14 @@ variables = [l_structure,
             l_rf]
 type_plot = "1DLambda"
 # Which plot we want (1DLambda/Theta/RF/ThetaOut, 2DLambdaTheta/LambdaRF/LambdaStruct/ThetaStruct)
-kept_modes = "refl_spec"
+kept_modes = "tran_spec"
 # Which modes to keep, in key words: refl/tran/spec/diff/scat/abs
 # (in no particular order)
 
 #%%
 
-path = "Resultats_UCA"
-filename = "Desordre_Correl_full_graph_multi"
+path = "EOT"
+filename = "Fente_sillon_2_spectre"
 
 def compute(variables, params, var=0, type_disorder=type_disorder):
 
@@ -149,6 +153,10 @@ def compute(variables, params, var=0, type_disorder=type_disorder):
     # Saving the figures to path/filename_[structure geometry].svg
     modele.post_processing_analytical(res, type_plot, kept_modes,
                                    SI_variables, params, var, save=True,
-                                   path=path, file=filename, averaging=True)
+                                   path=path, file=filename, averaging=True,
+                                   contours=[0.1*i for i in range(1,9)])
 
 compute(variables, params, type_disorder=type_disorder)
+
+#%%
+
