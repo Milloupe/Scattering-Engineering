@@ -22,16 +22,16 @@ path = "EOT"
 filename = "Optim_GSG"
 
 def cost_function(X, plot=False):
-    d_slit, d_groove_1, d_groove_2, w_slit, w_groove_1, w_groove_2, per = X
+    d_slit, d_groove_1, d_groove_2, w_slit, w_groove_1, w_groove_2, extra_per = X
         
     ### Defining the structure
     l_structure = list()
     structure = bunch.Bunch()
-    space = (per - w_slit - w_groove_1 - w_groove_2)/3
-    structure.interf = [0, w_slit, space, space+w_groove_1, 2*space, 2*space+w_groove_2]
-    if (2*space+w_groove_2 > per):
-        print("overlap", structure.interf, per)
-        return 10
+    per = w_slit + w_groove_1 + w_groove_2 + extra_per # Spacing each structure by 100nm
+    structure.interf = [0, w_slit, w_slit + extra_per/3, w_slit + extra_per/3 + w_groove_1, w_slit + 2*extra_per/3 + w_groove_1, w_slit + 2*extra_per/3 + w_groove_1 + w_groove_2]
+    # if (2*space+w_groove_2 > per): # Cannot happen in the current conditions
+    #     print("overlap", structure.interf, per)
+    #     return 10
     structure.depth = [d_slit, d_groove_1, d_groove_2]
     structure.period = per
     structure.height_metal = structure.depth[0]#+1e-6
@@ -116,17 +116,18 @@ def cost_function(X, plot=False):
     saved_var = modele.mode_selection(res, kept_modes, variables, params, averaging=True)
     vars = modele.load_var(saved_var, kept_modes, averaging=True)
     trans = vars.t_spec_avg[0,0] # rows are angles, columns are lambdas
-    maxi_trans = np.sum(trans[:, i_beg_lam:i_end_lam])
-    mini_trans = np.sum(trans[:, :i_beg_lam]) + np.sum(trans[:, i_end_lam:])
-    cost = (mini_trans - maxi_trans) / len(l_lambdas)
+    maxi_trans = np.sum(trans[:, i_beg_lam:i_end_lam])*10/lam_step #high transmission more important than high rejection
+    mini_trans = np.sum(trans[:, :i_beg_lam]) + np.sum(trans[:, i_end_lam:])/(2*lam_step)
+    zero_trans = np.sum(trans[:, i_beg_lam] + trans[:, i_end_lam])*10 # zeros at the end of the bandwidth are important
+    cost = (mini_trans + zero_trans - maxi_trans) / len(l_lambdas)
     return cost
 
-X_min = np.array([3e-6, 2e-6, 1e-6, 0e-6, 0e-6, 0e-6, 3e-6])
-X_max = np.array([5e-6, 3e-6, 2e-6, 1.5e-6, 1.5e-6, 1e-6, 6e-6])
+X_min = np.array([3e-6, 2e-6, 1e-6, 0e-6, 0e-6, 0e-6, 0])
+X_max = np.array([5e-6, 3e-6, 2e-6, 1.5e-6, 1.5e-6, 1e-6, 2e-6])
 # d_slit, d_groove_1, d_groove_2, w_slit, w_groove_1, w_groove_2, per = 3.6e-6, 2.1e-6, 1.3e-6, 0.8e-6, 0.8e-6, 0.6e-6, 4e-6
 import PyMoosh as PM
 
-best, conv = PM.QNDE(cost_function, budget=4000, X_min=X_min, X_max=X_max, progression=10)
+best, conv = PM.QODE(cost_function, budget=1000, X_min=X_min, X_max=X_max, progression=10)
 print(best)
 print(conv)
 cost_function(best, plot=True)

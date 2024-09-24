@@ -1796,7 +1796,9 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
                     if ("tran" in kept_modes):
                         if ("spec" in kept_modes):
                             plt.figure(figsize=(10,10))
-                            CS = plt.contourf(X, Y, v.t_spec_reps[i_struct, irf, :, :, irep],levels=[0.01*i for i in range(90)], cmap='viridis')
+                            maxi_tr = np.max(v.t_spec_reps[i_struct, irf, :, :, irep])
+                            maxi_level = int(maxi_tr*10)+1
+                            CS = plt.contourf(X, Y, v.t_spec_reps[i_struct, irf, :, :, irep],levels=[0.01*i for i in range(maxi_level*10)], cmap='viridis')
                             if (contours):
                                 CSc = plt.contour(X, Y, v.t_spec_reps[i_struct, irf, :, :, irep], contours, colors="k")
                                 plt.clabel(CSc, [0.1,0.8], inline=1, fontsize=20, colors=["w", "k"])
@@ -1817,7 +1819,7 @@ def plot_LambdaTheta(saved_var, kept_modes, variables, params,
                             else:
                                 plt.xlabel("Wavelength ({})".format(params.unit_lambda_plot))
                             plt.ylabel("Incidence Angle({})".format(params.unit_angle_plot))
-                            plt.colorbar(CS, ticks=[0.1*i for i in range(9)])
+                            plt.colorbar(CS, ticks=[0.1*i for i in range(maxi_level)])
                             if (save):
                                 plt.savefig(path + "/Spec_Trans_" + filename + ".svg")
                             print(filename)
