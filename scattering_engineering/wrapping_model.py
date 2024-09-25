@@ -176,7 +176,7 @@ def solve_analytic(profil):
 
 def post_processing_analytical(res, type_plot, kept_modes,
                                SI_variables, params,  variance=0,
-                               averaging=True, save=True, contours=0,
+                               averaging=True, save=True, fano_fit=False, contours=0,
                                path="", file=""):
     """
         Post-processing the results and plotting
@@ -247,7 +247,7 @@ def post_processing_analytical(res, type_plot, kept_modes,
 
     if (type_plot == "1DLambda"):
         plot_Lambda(saved_var, kept_modes, plot_variables, params,
-                      averaging, save, path, file, subplots=False)
+                      averaging, save, path, file, subplots=False, fano_fit=fano_fit)
     elif (type_plot == "1DTheta"):
         plot_Theta(saved_var, kept_modes, plot_variables, params,
                       averaging, save, path, file, subplots=False)
@@ -1160,7 +1160,7 @@ def load_var(saved_var, kept_modes, averaging, err=True):
 
 
 def plot_Lambda(saved_var, kept_modes, variables, params,
-                      averaging=True, save=True, path="", file="", subplots=False, err_ev=8):
+                      averaging=True, save=True, path="", file="", subplots=False, fano_fit=False, err_ev=8):
     """
         Plotting 1D plots of Efficiencies (of type kept_modes) against Lambda
     """
@@ -1289,7 +1289,21 @@ def plot_Lambda(saved_var, kept_modes, variables, params,
                                 plt.plot(l_lambdas, v.r_scat_reps[i_struct, i_rf, i_angle, :, irep], 'r', label="Upper Scattering")
                         if ("tran" in kept_modes):
                             if ("spec" in kept_modes):
-                                plt.plot(l_lambdas, v.t_spec_reps[i_struct, i_rf, i_angle, :, irep], 'b--', label="Spec. Transmission")
+                                if (fano_fit):
+                                    from scipy.optimize import curve_fit
+                                    def fano(x, delta, wr, gr, scale, bg):
+                                        D = 2*np.sin(delta)*scale
+                                        omega = 2*(x-wr)/gr
+                                        q = 1/np.tan(delta)
+                                        return D**2 * (q + omega)**2 / (1 + omega**2)
+                                    popt, pconv = curve_fit(fano, l_lambdas, v.t_spec_reps[i_struct, i_rf, i_angle, :, irep], p0=fano_fit)
+                                    delta, wr, gr, scale, bg = popt
+                                    q = 1/np.tan(delta)
+                                    label = f"Spec. Transmission, q={np.round(q,1)}, delta={np.round(delta,1)}; wr={np.round(wr,1)}, gr={np.round(gr,1)}; scale={np.round(scale,1)}, bg={np.round(bg,1)}"
+                                    plt.plot(l_lambdas, v.t_spec_reps[i_struct, i_rf, i_angle, :, irep], 'b--', label=label)
+                                    plt.plot(l_lambdas, fano(l_lambdas, delta, wr, gr, scale, bg), 'r+', label="Fano fit")
+                                else :
+                                    plt.plot(l_lambdas, v.t_spec_reps[i_struct, i_rf, i_angle, :, irep], 'b--', label="Spec. Transmission")
                             if ("diff" in kept_modes):
                                 plt.plot(l_lambdas, v.t_diff_reps[i_struct, i_rf, i_angle, :, irep], 'g--', label="Lower Diffr. Orders")
                             if ("scat" in kept_modes):

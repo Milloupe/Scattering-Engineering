@@ -24,10 +24,10 @@ structure = bunch.Bunch()
 #                       and then alternate between dielectric and metal)
 #                (It is also not supposed that there is an interface at x=0 or y=0)
 
-Ana_interf_full = [0.20e-6, 1.0e-06, 1.70e-06, 2.50e-06, 3.20e-06, 3.8e-06]
-Ana_prof_full = [3.6e-06, 2.1e-06, 1.3e-06]
+Ana_interf_full = [0.20e-6, 1.0e-06, 1.70e-06, 2.50e-06]#, 3.20e-06, 3.8e-06]
+Ana_prof_full = [3.6e-06, 2.1e-06]#, 1.3e-06]
 Ana_Lx = 4e-6
-scale = 25
+scale = 1
 structure.interf = [i*scale for i in Ana_interf_full]
 structure.depth = [i*scale for i in Ana_prof_full]
 structure.period = Ana_Lx*scale
@@ -65,25 +65,25 @@ l_structure.append(structure)
 ### Defining the field incidence
 l_angle = list()
 angle = bunch.Bunch()
-# angle.theta = 0.1*np.pi/180
-# # Colatitude of incidence
-# angle.phi = 0.01*np.pi/180
-# # The angle between the projection of the incident vector and the x axis (direction of structuration)
-# angle.psi = 0.01*np.pi/180
-# # The angle of rotation of the fields around the incident vector. 0 is TM
-# l_angle.append(angle)
-nb_angle = 20
-max_angle = 89
-for i_angle in range(nb_angle):
-    angle = bunch.Bunch()
-    angle.theta = (0.01 + i_angle*max_angle/(nb_angle-1)) * np.pi/180
-    angle.phi = 0.0*np.pi/180
-    angle.psi = 0.0*np.pi/180
-    l_angle.append(angle)
+angle.theta = 0.1*np.pi/180
+# Colatitude of incidence
+angle.phi = 0.01*np.pi/180
+# The angle between the projection of the incident vector and the x axis (direction of structuration)
+angle.psi = 0.01*np.pi/180
+# The angle of rotation of the fields around the incident vector. 0 is TM
+l_angle.append(angle)
+# nb_angle = 20
+# max_angle = 89
+# for i_angle in range(nb_angle):
+#     angle = bunch.Bunch()
+#     angle.theta = (0.01 + i_angle*max_angle/(nb_angle-1)) * np.pi/180
+#     angle.phi = 0.0*np.pi/180
+#     angle.psi = 0.0*np.pi/180
+#     l_angle.append(angle)
 
 
 ### Defining the wavelengths
-l_lambdas = np.arange(6, 13, 0.1)*1e-6*scale
+l_lambdas = np.arange(6, 13, 0.01)*1e-6*scale
 #l_lambdas = np.array([4.65])*1e-6
 # lambdas will always be a simple np.array, no list needed
 
@@ -135,7 +135,7 @@ variables = [l_structure,
             l_angle,
             l_lambdas,
             l_rf]
-type_plot = "2DLambdaTheta"
+type_plot = "1DLambda"
 # Which plot we want (1DLambda/Theta/RF/ThetaOut, 2DLambdaTheta/LambdaRF/LambdaStruct/ThetaStruct)
 kept_modes = "tran_spec"
 # Which modes to keep, in key words: refl/tran/spec/diff/scat/abs
@@ -144,7 +144,7 @@ kept_modes = "tran_spec"
 #%%
 
 path = "EOT"
-filename = "Optim_GSG_3-5"
+filename = "SG1_fano"
 
 def compute(variables, params, var=0, type_disorder=type_disorder):
 
@@ -154,7 +154,7 @@ def compute(variables, params, var=0, type_disorder=type_disorder):
     # Saving the figures to path/filename_[structure geometry].svg
     modele.post_processing_analytical(res, type_plot, kept_modes,
                                    SI_variables, params, var, save=True,
-                                   path=path, file=filename, averaging=True,
+                                   path=path, file=filename, fano_fit=[1, 10, 1, 0.9, 0.01], averaging=True,
                                    contours=[0.1*i for i in range(1,10)])
 
 compute(variables, params, type_disorder=type_disorder)
